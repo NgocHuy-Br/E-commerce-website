@@ -1,13 +1,13 @@
 package auth_service.security;
 
 import auth_service.entity.Account;
-import auth_service.entity.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.util.Date;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +31,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(account.getId().toString())
                 .claim("email", account.getEmail())
-                .claim("role", account.getRole().name())
+                .claim("roles", account.getRoles().stream().map(Enum::name).toList())
                 .issuedAt(issuedAt)
                 .expiration(expiresAt)
                 .signWith(signingKey)
@@ -48,6 +48,8 @@ public class JwtService {
         return new AuthPrincipal(
                 Long.valueOf(claims.getSubject()),
                 claims.get("email", String.class),
-                Role.valueOf(claims.get("role", String.class)));
+                Set.copyOf(claims.get("roles", java.util.List.class).stream()
+                        .map(value -> auth_service.entity.Role.valueOf(String.valueOf(value)))
+                        .toList()));
     }
 }

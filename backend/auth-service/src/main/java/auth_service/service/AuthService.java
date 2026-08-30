@@ -1,6 +1,7 @@
 package auth_service.service;
 
 import auth_service.dto.AuthResponse;
+import auth_service.dto.AccountResponse;
 import auth_service.dto.LoginRequest;
 import auth_service.dto.RegisterRequest;
 import auth_service.entity.Account;
@@ -9,6 +10,8 @@ import auth_service.entity.Role;
 import auth_service.repository.AccountRepository;
 import auth_service.security.JwtService;
 import java.util.Locale;
+import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,8 +43,7 @@ public class AuthService {
 
         Account account = accountRepository.save(new Account(
                 email,
-                passwordEncoder.encode(request.password()),
-                Role.BUYER));
+                passwordEncoder.encode(request.password())));
         return toAuthResponse(account);
     }
 
@@ -59,13 +61,43 @@ public class AuthService {
         return toAuthResponse(account);
     }
 
+    @Transactional(readOnly = true)
+    public List<AccountResponse> getAccounts() {
+        return accountRepository.findAll().stream().map(this::toAccountResponse).toList();
+    }
+
+    @Transactional
+    public AccountResponse updateRoles(Long accountId, Set<Role> roles) {
+        Account account = findAccount(accountId);
+        roles.forEach(account::addRole);
+        account.getRoles().stream().filter(role -> role != Role.BUYER && !roles.contains(role))
+                .forEach(account::removeRole);
+        return toAccountResponse(account);
+    }
+
+    @Transactional
+    public AccountResponse updateStatus(Long accountId, AccountStatus status) {
+        Account account = findAccount(accountId);
+        account.setStatus(status);
+        return toAccountResponse(account);
+    }
+
     private AuthResponse toAuthResponse(Account account) {
         return new AuthResponse(
                 jwtService.generateToken(account),
                 "Bearer",
                 account.getId(),
                 account.getEmail(),
-                account.getRole());
+                account.getRoles());
+    }
+
+    private AccountResponse toAccountResponse(Account account) {
+        return new AccountResponse(account.getId(), account.getEmail(), account.getRoles(), account.getStatus());
+    }
+
+    private Account findAccount(Long accountId) {
+        return accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
     }
 
     private String normalizeEmail(String email) {

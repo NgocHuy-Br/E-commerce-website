@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,7 +35,7 @@ class StoreServiceApplicationTests {
 		when(storeRepository.save(any(Store.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		StoreResponse response = storeService.create(
-				new AuthPrincipal(5L, "seller@example.com", "SELLER"),
+				new AuthPrincipal(5L, "seller@example.com", Set.of("SELLER", "BUYER")),
 				new StoreRequest("Tech Shop", "Electronics", "Ha Noi", "0900000000", null));
 
 		assertEquals("Tech Shop", response.name());

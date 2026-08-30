@@ -42,21 +42,21 @@ public class StoreController {
     }
 
     @GetMapping("/mine")
-    @PreAuthorize("hasRole('SELLER')")
+    @PreAuthorize("hasAnyRole('BUYER','SELLER')")
     public StoreResponse getMine(@AuthenticationPrincipal AuthPrincipal principal) {
         return storeService.getMine(principal);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('SELLER')")
+    @PreAuthorize("hasRole('BUYER')")
     public StoreResponse create(@AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody StoreRequest request) {
         return storeService.create(principal, request);
     }
 
     @PutMapping("/mine")
-    @PreAuthorize("hasRole('SELLER')")
+    @PreAuthorize("hasAnyRole('BUYER','SELLER')")
     public StoreResponse updateMine(@AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody StoreRequest request) {
         return storeService.updateMine(principal, request);

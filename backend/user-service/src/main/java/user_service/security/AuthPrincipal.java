@@ -1,4 +1,6 @@
 package user_service.security;
 
-public record AuthPrincipal(Long userId, String email, String role) {
+import java.util.Set;
+
+public record AuthPrincipal(Long userId, String email, Set<String> roles) {
 }

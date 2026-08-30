@@ -1,6 +1,7 @@
 package auth_service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -49,13 +50,13 @@ class AuthServiceApplicationTests {
 
 		assertEquals("access-token", response.accessToken());
 		assertEquals("buyer@example.com", response.email());
-		assertEquals(Role.BUYER, response.role());
+		assertTrue(response.roles().contains(Role.BUYER));
 		verify(accountRepository).save(any(Account.class));
 	}
 
 	@Test
 	void loginRejectsIncorrectPassword() {
-		Account account = new Account("buyer@example.com", "hashed-password", Role.BUYER);
+		Account account = new Account("buyer@example.com", "hashed-password");
 		when(accountRepository.findByEmail("buyer@example.com")).thenReturn(Optional.of(account));
 		when(passwordEncoder.matches("wrong-password", "hashed-password")).thenReturn(false);
 

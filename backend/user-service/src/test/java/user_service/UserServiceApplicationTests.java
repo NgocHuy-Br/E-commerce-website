@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,7 +33,7 @@ class UserServiceApplicationTests {
 
 	@Test
 	void getProfileCreatesProfileForFirstAuthenticatedRequest() {
-		AuthPrincipal principal = new AuthPrincipal(7L, "buyer@example.com", "BUYER");
+		AuthPrincipal principal = new AuthPrincipal(7L, "buyer@example.com", Set.of("BUYER"));
 		when(userProfileRepository.findByUserId(7L)).thenReturn(Optional.empty());
 		when(userProfileRepository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
