@@ -13,3 +13,7 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}

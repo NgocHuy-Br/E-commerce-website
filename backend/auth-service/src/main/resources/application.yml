@@ -2,6 +2,8 @@ server:
   port: 8081
 
 spring:
+  application:
+    name: auth-service
   datasource:
     url: jdbc:mysql://localhost:3310/db_auth
     username: root
@@ -11,3 +13,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
