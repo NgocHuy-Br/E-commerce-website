@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import store_service.dto.StoreRequest;
 import store_service.dto.StoreResponse;
 import store_service.dto.StoreStatusRequest;
+import store_service.dto.StoreVerificationResponse;
 import store_service.entity.StoreStatus;
 import store_service.security.AuthPrincipal;
 import store_service.service.StoreService;
@@ -47,6 +48,13 @@ public class StoreController {
         return storeService.getMine(principal);
     }
 
+    @GetMapping("/{storeId}/verification")
+    @PreAuthorize("hasRole('SELLER')")
+    public StoreVerificationResponse verifySellerStore(@PathVariable Long storeId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return storeService.verifySellerStore(storeId, principal);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('BUYER')")
@@ -70,7 +78,8 @@ public class StoreController {
 
     @PutMapping("/{storeId}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public StoreResponse updateStatus(@PathVariable Long storeId, @Valid @RequestBody StoreStatusRequest request) {
-        return storeService.updateStatus(storeId, request.status());
+    public StoreResponse updateStatus(@PathVariable Long storeId, @Valid @RequestBody StoreStatusRequest request,
+            @org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorization) {
+        return storeService.updateStatus(storeId, request.status(), authorization);
     }
 }

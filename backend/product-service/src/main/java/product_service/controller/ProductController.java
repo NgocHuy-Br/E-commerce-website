@@ -2,6 +2,7 @@ package product_service.controller;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +29,7 @@ import product_service.repository.CategoryRepository;
 import product_service.repository.PromotionRepository;
 import product_service.repository.ProductRepository;
 import product_service.security.AuthPrincipal;
+import product_service.service.StoreVerificationClient;
 
 @RestController
 @RequestMapping("/api/products")
@@ -35,12 +37,17 @@ public class ProductController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final PromotionRepository promotionRepository;
+    private final StoreVerificationClient storeVerificationClient;
+    private final String internalApiKey;
 
     public ProductController(ProductRepository productRepository, CategoryRepository categoryRepository,
-            PromotionRepository promotionRepository) {
+            PromotionRepository promotionRepository, StoreVerificationClient storeVerificationClient,
+            @Value("${app.internal.key}") String internalApiKey) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.promotionRepository = promotionRepository;
+        this.storeVerificationClient = storeVerificationClient;
+        this.internalApiKey = internalApiKey;
     }
 
     @GetMapping
@@ -74,7 +81,9 @@ public class ProductController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SELLER')")
     public ProductResponse create(@AuthenticationPrincipal AuthPrincipal principal,
+            @org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorization,
             @Valid @RequestBody ProductRequest request) {
+        storeVerificationClient.verifyActiveOwner(request.storeId(), principal.userId(), authorization);
         Category category = findCategory(request.categoryId());
         return toResponse(
                 productRepository.save(new Product(principal.userId(), request.storeId(), category, request.name(),
@@ -104,6 +113,24 @@ public class ProductController {
     public ProductResponse updateStatus(@PathVariable Long productId, @RequestParam ProductStatus status) {
         Product product = findProduct(productId);
         product.setStatus(status);
+        return toResponse(product);
+    }
+
+    @PutMapping("/internal/{productId}/reserve")
+    public ProductResponse reserveStock(@PathVariable Long productId, @RequestParam int quantity,
+            @org.springframework.web.bind.annotation.RequestHeader("X-Internal-Key") String requestKey) {
+        if (!internalApiKey.equals(requestKey)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal key");
+        }
+        if (quantity < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be positive");
+        }
+        Product product = findProduct(productId);
+        try {
+            product.decreaseStock(quantity);
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage());
+        }
         return toResponse(product);
     }
 

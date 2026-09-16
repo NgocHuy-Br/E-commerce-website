@@ -14,6 +14,8 @@ public class OrderItem {
     private CustomerOrder order;
     @Column(nullable = false)
     private Long productId;
+    @Column(nullable = false)
+    private Long storeId;
     @Column(nullable = false, length = 200)
     private String productName;
     @Column(nullable = false, precision = 15, scale = 2)
@@ -24,9 +26,11 @@ public class OrderItem {
     protected OrderItem() {
     }
 
-    public OrderItem(CustomerOrder order, Long productId, String productName, BigDecimal unitPrice, int quantity) {
+    public OrderItem(CustomerOrder order, Long productId, Long storeId, String productName, BigDecimal unitPrice,
+            int quantity) {
         this.order = order;
         this.productId = productId;
+        this.storeId = storeId;
         this.productName = productName;
         this.unitPrice = unitPrice;
         this.quantity = quantity;
@@ -34,6 +38,10 @@ public class OrderItem {
 
     public Long getProductId() {
         return productId;
+    }
+
+    public Long getStoreId() {
+        return storeId;
     }
 
     public String getProductName() {

@@ -21,3 +21,5 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
+  internal:
+    key: ${INTERNAL_API_KEY:nhom14-development-internal-key}

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import java.util.List;
 
 @RestController
@@ -66,5 +67,11 @@ public class AuthController {
     public AccountResponse updateStatus(@PathVariable Long accountId,
             @Valid @RequestBody AccountStatusRequest request) {
         return authService.updateStatus(accountId, request.status());
+    }
+
+    @PatchMapping("/admin/accounts/{accountId}/seller-role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AccountResponse grantSellerRole(@PathVariable Long accountId) {
+        return authService.grantSellerRole(accountId);
     }
 }

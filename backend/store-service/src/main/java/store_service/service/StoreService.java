@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import store_service.dto.StoreRequest;
 import store_service.dto.StoreResponse;
+import store_service.dto.StoreVerificationResponse;
 import store_service.entity.Store;
 import store_service.entity.StoreStatus;
 import store_service.repository.StoreRepository;
@@ -16,9 +17,11 @@ import store_service.security.AuthPrincipal;
 public class StoreService {
 
     private final StoreRepository storeRepository;
+    private final AuthServiceClient authServiceClient;
 
-    public StoreService(StoreRepository storeRepository) {
+    public StoreService(StoreRepository storeRepository, AuthServiceClient authServiceClient) {
         this.storeRepository = storeRepository;
+        this.authServiceClient = authServiceClient;
     }
 
     @Transactional(readOnly = true)
@@ -39,6 +42,15 @@ public class StoreService {
     public StoreResponse getMine(AuthPrincipal principal) {
         return toResponse(storeRepository.findByOwnerId(principal.userId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found")));
+    }
+
+    @Transactional(readOnly = true)
+    public StoreVerificationResponse verifySellerStore(Long storeId, AuthPrincipal principal) {
+        Store store = findStore(storeId);
+        if (!store.getOwnerId().equals(principal.userId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Store does not belong to seller");
+        }
+        return new StoreVerificationResponse(store.getId(), store.getOwnerId(), store.getStatus());
     }
 
     @Transactional
@@ -68,9 +80,11 @@ public class StoreService {
     }
 
     @Transactional
-    public StoreResponse updateStatus(Long storeId, StoreStatus status) {
+    public StoreResponse updateStatus(Long storeId, StoreStatus status, String authorization) {
         Store store = findStore(storeId);
         store.setStatus(status);
+        if (status == StoreStatus.ACTIVE)
+            authServiceClient.grantSellerRole(store.getOwnerId(), authorization);
         return toResponse(store);
     }
 

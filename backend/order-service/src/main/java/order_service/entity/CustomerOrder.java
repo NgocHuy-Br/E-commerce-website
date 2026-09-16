@@ -22,6 +22,13 @@ public class CustomerOrder {
     private String paymentMethod;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    private PaymentStatus paymentStatus;
+    @Column(precision = 15, scale = 2)
+    private BigDecimal discountAmount;
+    @Column(length = 40)
+    private String voucherCode;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private OrderStatus status;
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -35,6 +42,7 @@ public class CustomerOrder {
         this.buyerId = buyerId;
         this.shippingAddress = shippingAddress;
         this.paymentMethod = paymentMethod;
+        this.paymentStatus = "COD".equalsIgnoreCase(paymentMethod) ? PaymentStatus.PENDING : PaymentStatus.PAID;
         this.status = OrderStatus.PENDING;
         this.createdAt = Instant.now();
         this.totalAmount = BigDecimal.ZERO;
@@ -43,6 +51,13 @@ public class CustomerOrder {
     public void addItem(OrderItem item) {
         items.add(item);
         totalAmount = totalAmount.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+    }
+
+    public void applyVoucher(Voucher voucher) {
+        discountAmount = totalAmount.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
+                .divide(BigDecimal.valueOf(100));
+        totalAmount = totalAmount.subtract(discountAmount);
+        voucherCode = voucher.getCode();
     }
 
     public Long getId() {
@@ -65,6 +80,18 @@ public class CustomerOrder {
         return paymentMethod;
     }
 
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount == null ? BigDecimal.ZERO : discountAmount;
+    }
+
+    public String getVoucherCode() {
+        return voucherCode;
+    }
+
     public OrderStatus getStatus() {
         return status;
     }
@@ -75,5 +102,9 @@ public class CustomerOrder {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 }

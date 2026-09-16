@@ -120,4 +120,14 @@ public class Product {
     public void setStatus(ProductStatus status) {
         this.status = status;
     }
+
+    public void decreaseStock(int quantity) {
+        if (status != ProductStatus.ACTIVE || quantity > stockQuantity) {
+            throw new IllegalStateException("Product is unavailable");
+        }
+        stockQuantity -= quantity;
+        if (stockQuantity == 0) {
+            status = ProductStatus.OUT_OF_STOCK;
+        }
+    }
 }

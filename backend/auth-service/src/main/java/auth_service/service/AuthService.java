@@ -82,6 +82,13 @@ public class AuthService {
         return toAccountResponse(account);
     }
 
+    @Transactional
+    public AccountResponse grantSellerRole(Long accountId) {
+        Account account = findAccount(accountId);
+        account.addRole(Role.SELLER);
+        return toAccountResponse(account);
+    }
+
     private AuthResponse toAuthResponse(Account account) {
         return new AuthResponse(
                 jwtService.generateToken(account),

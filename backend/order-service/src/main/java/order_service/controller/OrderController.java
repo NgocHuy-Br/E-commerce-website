@@ -34,7 +34,15 @@ public class OrderController {
 
     @PutMapping("/{orderId}/status")
     @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
-    public OrderResponse updateStatus(@PathVariable Long orderId, @RequestParam OrderStatus status) {
-        return orderService.updateStatus(orderId, status);
+    public OrderResponse updateStatus(@PathVariable Long orderId, @RequestParam OrderStatus status,
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestHeader("Authorization") String authorization) {
+        return orderService.updateStatus(orderId, status, principal, authorization);
+    }
+
+    @PutMapping("/{orderId}/pay")
+    @PreAuthorize("hasRole('BUYER')")
+    public OrderResponse pay(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal) {
+        return orderService.pay(orderId, principal.userId());
     }
 }
