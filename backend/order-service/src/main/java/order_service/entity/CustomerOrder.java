@@ -55,7 +55,7 @@ public class CustomerOrder {
 
     public void applyVoucher(Voucher voucher) {
         discountAmount = totalAmount.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
-                .divide(BigDecimal.valueOf(100));
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
         totalAmount = totalAmount.subtract(discountAmount);
         voucherCode = voucher.getCode();
     }
@@ -94,6 +94,10 @@ public class CustomerOrder {
 
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 
     public List<OrderItem> getItems() {

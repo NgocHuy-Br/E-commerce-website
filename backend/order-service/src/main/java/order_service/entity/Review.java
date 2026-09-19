@@ -36,6 +36,14 @@ public class Review {
         return id;
     }
 
+    public CustomerOrder getOrder() {
+        return order;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public Long getProductId() {
         return productId;
     }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import order_service.dto.CheckoutRequest;
 import order_service.dto.OrderResponse;
+import order_service.dto.PlatformOrderStatsResponse;
 import order_service.entity.OrderStatus;
 import order_service.security.AuthPrincipal;
 import order_service.service.OrderService;
@@ -32,6 +33,25 @@ public class OrderController {
         return orderService.getMine(principal.userId());
     }
 
+    /** Danh sách đơn hàng của cửa hàng người bán đang đăng nhập. */
+    @GetMapping("/seller")
+    @PreAuthorize("hasRole('SELLER')")
+    public List<OrderResponse> forSeller(@RequestHeader("Authorization") String authorization) {
+        return orderService.getForSeller(authorization);
+    }
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<OrderResponse> forAdmin() {
+        return orderService.getForAdmin();
+    }
+
+    @GetMapping("/admin/statistics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public PlatformOrderStatsResponse statistics() {
+        return orderService.getStatistics();
+    }
+
     @PutMapping("/{orderId}/status")
     @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public OrderResponse updateStatus(@PathVariable Long orderId, @RequestParam OrderStatus status,
@@ -44,5 +64,12 @@ public class OrderController {
     @PreAuthorize("hasRole('BUYER')")
     public OrderResponse pay(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal) {
         return orderService.pay(orderId, principal.userId());
+    }
+
+    /** Người mua huỷ đơn khi shop chưa giao. */
+    @PutMapping("/{orderId}/cancel")
+    @PreAuthorize("hasRole('BUYER')")
+    public OrderResponse cancel(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal) {
+        return orderService.cancel(orderId, principal.userId());
     }
 }

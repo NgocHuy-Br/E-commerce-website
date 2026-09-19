@@ -17,3 +17,5 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
+  auth-service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8081}

@@ -1,5 +1,6 @@
 package product_service.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -10,8 +11,9 @@ public class StoreVerificationClient {
 
     private final RestClient restClient;
 
-    public StoreVerificationClient(RestClient.Builder builder) {
-        this.restClient = builder.baseUrl("http://localhost:8084").build();
+    public StoreVerificationClient(RestClient.Builder builder,
+            @Value("${app.store-service.url}") String storeServiceUrl) {
+        this.restClient = builder.baseUrl(storeServiceUrl).build();
     }
 
     public void verifyActiveOwner(Long storeId, Long sellerId, String authorization) {

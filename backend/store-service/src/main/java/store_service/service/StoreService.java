@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import store_service.dto.StoreRequest;
+import store_service.dto.StoreStatsResponse;
 import store_service.dto.StoreResponse;
 import store_service.dto.StoreVerificationResponse;
 import store_service.entity.Store;
@@ -77,6 +78,16 @@ public class StoreService {
         List<Store> stores = status == null ? storeRepository.findAll()
                 : storeRepository.findAllByStatusOrderByIdDesc(status);
         return stores.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StoreStatsResponse getStatistics() {
+        return new StoreStatsResponse(
+                storeRepository.count(),
+                storeRepository.countByStatus(StoreStatus.PENDING),
+                storeRepository.countByStatus(StoreStatus.ACTIVE),
+                storeRepository.countByStatus(StoreStatus.REJECTED),
+                storeRepository.countByStatus(StoreStatus.SUSPENDED));
     }
 
     @Transactional

@@ -15,11 +15,18 @@ spring:
     show-sql: true
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
 
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
   internal:
     key: ${INTERNAL_API_KEY:nhom14-development-internal-key}
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8083}
+  store-service:
+    url: ${STORE_SERVICE_URL:http://localhost:8084}

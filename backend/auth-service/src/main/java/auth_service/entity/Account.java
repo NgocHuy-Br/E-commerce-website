@@ -69,6 +69,10 @@ public class Account {
         return passwordHash;
     }
 
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public Set<Role> getRoles() {
         if (roles.isEmpty()) {
             return legacyRole == Role.BUYER ? Set.of(Role.BUYER) : Set.of(Role.BUYER, legacyRole);

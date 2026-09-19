@@ -2,7 +2,9 @@ package auth_service.service;
 
 import auth_service.dto.AuthResponse;
 import auth_service.dto.AccountResponse;
+import auth_service.dto.AccountStatsResponse;
 import auth_service.dto.LoginRequest;
+import auth_service.dto.PasswordChangeRequest;
 import auth_service.dto.RegisterRequest;
 import auth_service.entity.Account;
 import auth_service.entity.AccountStatus;
@@ -59,6 +61,30 @@ public class AuthService {
         }
 
         return toAuthResponse(account);
+    }
+
+    @Transactional
+    public void changePassword(Long accountId, PasswordChangeRequest request) {
+        Account account = findAccount(accountId);
+        if (!passwordEncoder.matches(request.currentPassword(), account.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu hiện tại không đúng");
+        }
+        if (passwordEncoder.matches(request.newPassword(), account.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        account.changePassword(passwordEncoder.encode(request.newPassword()));
+    }
+
+    @Transactional(readOnly = true)
+    public AccountStatsResponse getStatistics() {
+        List<Account> accounts = accountRepository.findAll();
+        return new AccountStatsResponse(
+                accounts.size(),
+                accounts.stream().filter(account -> account.getStatus() == AccountStatus.ACTIVE).count(),
+                accounts.stream().filter(account -> account.getStatus() == AccountStatus.LOCKED).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.BUYER)).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.SELLER)).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.ADMIN)).count());
     }
 
     @Transactional(readOnly = true)

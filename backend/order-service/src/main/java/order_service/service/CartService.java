@@ -6,8 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import order_service.dto.CartItemRequest;
 import order_service.dto.CartItemResponse;
+import order_service.service.ProductClient.ProductSnapshot;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class CartService {
@@ -16,10 +19,12 @@ public class CartService {
     };
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ProductClient productClient;
 
-    public CartService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+    public CartService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper, ProductClient productClient) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.productClient = productClient;
     }
 
     public List<CartItemResponse> getCart(Long userId) {
@@ -33,21 +38,24 @@ public class CartService {
         }
     }
 
+    /** Thêm sản phẩm vào giỏ; tên và giá luôn lấy từ product-service. */
     public List<CartItemResponse> addItem(Long userId, CartItemRequest request) {
         List<CartItemResponse> cart = new ArrayList<>(getCart(userId));
-        for (int index = 0; index < cart.size(); index++) {
-            CartItemResponse item = cart.get(index);
-            if (item.productId().equals(request.productId())) {
-                cart.set(index, new CartItemResponse(item.productId(), request.productName(), request.unitPrice(),
-                        item.quantity() + request.quantity()));
-                saveCart(userId, cart);
-                return cart;
-            }
+        int index = indexOf(cart, request.productId());
+        int currentQuantity = index < 0 ? 0 : cart.get(index).quantity();
+        return saveItem(userId, cart, request.productId(), currentQuantity + request.quantity());
+    }
+
+    /** Đặt lại số lượng của một dòng trong giỏ; quantity = 0 nghĩa là xoá. */
+    public List<CartItemResponse> setQuantity(Long userId, Long productId, int quantity) {
+        if (quantity < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng không hợp lệ");
         }
-        cart.add(new CartItemResponse(request.productId(), request.productName(), request.unitPrice(),
-                request.quantity()));
-        saveCart(userId, cart);
-        return cart;
+        if (quantity == 0) {
+            return removeItem(userId, productId);
+        }
+        List<CartItemResponse> cart = new ArrayList<>(getCart(userId));
+        return saveItem(userId, cart, productId, quantity);
     }
 
     public List<CartItemResponse> removeItem(Long userId, Long productId) {
@@ -59,6 +67,37 @@ public class CartService {
 
     public void clearCart(Long userId) {
         redisTemplate.delete(key(userId));
+    }
+
+    private List<CartItemResponse> saveItem(Long userId, List<CartItemResponse> cart, Long productId, int quantity) {
+        ProductSnapshot product = productClient.fetch(productId);
+        if (!"ACTIVE".equals(product.status())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sản phẩm hiện không bán");
+        }
+        if (quantity > product.stockQuantity()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chỉ còn " + product.stockQuantity() + " sản phẩm trong kho");
+        }
+        CartItemResponse item = new CartItemResponse(product.id(), product.storeId(), product.name(),
+                product.sellingPrice(), product.price(), product.discountPercent(), quantity,
+                product.stockQuantity(), product.imageUrl());
+        int index = indexOf(cart, productId);
+        if (index < 0) {
+            cart.add(item);
+        } else {
+            cart.set(index, item);
+        }
+        saveCart(userId, cart);
+        return cart;
+    }
+
+    private int indexOf(List<CartItemResponse> cart, Long productId) {
+        for (int index = 0; index < cart.size(); index++) {
+            if (cart.get(index).productId().equals(productId)) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private void saveCart(Long userId, List<CartItemResponse> cart) {

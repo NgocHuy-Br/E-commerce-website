@@ -10,4 +10,6 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
     Optional<Store> findByOwnerId(Long ownerId);
 
     List<Store> findAllByStatusOrderByIdDesc(StoreStatus status);
+
+    long countByStatus(StoreStatus status);
 }

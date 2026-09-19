@@ -121,6 +121,14 @@ public class Product {
         this.status = status;
     }
 
+    /** Hoàn kho khi đơn hàng bị huỷ. */
+    public void increaseStock(int quantity) {
+        stockQuantity += quantity;
+        if (status == ProductStatus.OUT_OF_STOCK && stockQuantity > 0) {
+            status = ProductStatus.ACTIVE;
+        }
+    }
+
     public void decreaseStock(int quantity) {
         if (status != ProductStatus.ACTIVE || quantity > stockQuantity) {
             throw new IllegalStateException("Product is unavailable");

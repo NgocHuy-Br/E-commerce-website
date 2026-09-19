@@ -1,0 +1,268 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { api, errorMessage } from "../../lib/api";
+import { useLoadEffect } from "../../lib/hooks";
+import type { Notify } from "../../lib/session";
+import type { Address, Profile } from "../../lib/types";
+import { Badge, Button, Card, Empty, Field, TextInput } from "../ui";
+
+const emptyAddress = {
+  recipientName: "",
+  phoneNumber: "",
+  detail: "",
+  ward: "",
+  district: "",
+  city: "",
+  defaultAddress: false,
+};
+
+/** Quản lý thông tin cá nhân và sổ địa chỉ giao hàng. */
+export function ProfilePanel({
+  token,
+  onAddressesChange,
+  notify,
+}: {
+  token: string | null;
+  onAddressesChange: (addresses: Address[]) => void;
+  notify: Notify;
+}) {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [form, setForm] = useState({ ...emptyAddress });
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [profileData, addressData] = await Promise.all([
+        api<Profile>("/api/users/me", { token }),
+        api<Address[]>("/api/users/me/addresses", { token }),
+      ]);
+      setProfile(profileData);
+      setFullName(profileData.fullName ?? "");
+      setPhoneNumber(profileData.phoneNumber ?? "");
+      setAvatarUrl(profileData.avatarUrl ?? "");
+      setAddresses(addressData);
+      onAddressesChange(addressData);
+    } catch (error) {
+      notify(errorMessage(error, "Không thể tải thông tin cá nhân."), "error");
+    }
+  }, [token, notify, onAddressesChange]);
+
+  useLoadEffect(load);
+
+  const saveProfile = async () => {
+    try {
+      const updated = await api<Profile>("/api/users/me", {
+        method: "PUT",
+        token,
+        body: { fullName, phoneNumber, avatarUrl: avatarUrl || null },
+      });
+      setProfile(updated);
+      notify("Đã cập nhật thông tin cá nhân.", "success");
+    } catch (error) {
+      notify(errorMessage(error, "Không thể cập nhật thông tin."), "error");
+    }
+  };
+
+  const saveAddress = async () => {
+    try {
+      const path = editingId
+        ? `/api/users/me/addresses/${editingId}`
+        : "/api/users/me/addresses";
+      await api<Address>(path, {
+        method: editingId ? "PUT" : "POST",
+        token,
+        body: form,
+      });
+      setForm({ ...emptyAddress });
+      setEditingId(null);
+      notify(
+        editingId ? "Đã cập nhật địa chỉ." : "Đã thêm địa chỉ.",
+        "success",
+      );
+      await load();
+    } catch (error) {
+      notify(errorMessage(error, "Không thể lưu địa chỉ."), "error");
+    }
+  };
+
+  const deleteAddress = async (addressId: number) => {
+    try {
+      await api(`/api/users/me/addresses/${addressId}`, {
+        method: "DELETE",
+        token,
+      });
+      notify("Đã xoá địa chỉ.", "success");
+      await load();
+    } catch (error) {
+      notify(errorMessage(error, "Không thể xoá địa chỉ."), "error");
+    }
+  };
+
+  if (!token) {
+    return (
+      <Card title="Thông tin cá nhân">
+        <Empty>Đăng nhập để quản lý thông tin cá nhân.</Empty>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card title="Thông tin cá nhân">
+        <p className="mb-3 text-sm text-slate-500">
+          Email: {profile?.email ?? "-"}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Họ tên">
+            <TextInput
+              value={fullName}
+              onChange={setFullName}
+              placeholder="Nguyễn Văn A"
+            />
+          </Field>
+          <Field label="Số điện thoại">
+            <TextInput
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+              placeholder="09xxxxxxxx"
+            />
+          </Field>
+          <Field label="Ảnh đại diện (URL)">
+            <TextInput
+              value={avatarUrl}
+              onChange={setAvatarUrl}
+              placeholder="https://..."
+            />
+          </Field>
+        </div>
+        <Button className="mt-4" onClick={saveProfile}>
+          Lưu thông tin
+        </Button>
+      </Card>
+
+      <Card title="Sổ địa chỉ">
+        {addresses.length === 0 ? (
+          <Empty>Chưa có địa chỉ nào.</Empty>
+        ) : (
+          <ul className="space-y-2">
+            {addresses.map((address) => (
+              <li
+                key={address.id}
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2 last:border-0"
+              >
+                <div className="text-sm">
+                  <p className="font-medium">
+                    {address.recipientName} · {address.phoneNumber}{" "}
+                    {address.defaultAddress && (
+                      <Badge tone="success">Mặc định</Badge>
+                    )}
+                  </p>
+                  <p className="text-slate-600">
+                    {address.detail}, {address.ward}, {address.district},{" "}
+                    {address.city}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingId(address.id);
+                      setForm({
+                        recipientName: address.recipientName,
+                        phoneNumber: address.phoneNumber,
+                        detail: address.detail,
+                        ward: address.ward,
+                        district: address.district,
+                        city: address.city,
+                        defaultAddress: address.defaultAddress,
+                      });
+                    }}
+                  >
+                    Sửa
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => deleteAddress(address.id)}
+                  >
+                    Xoá
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-3">
+          <Field label="Người nhận">
+            <TextInput
+              value={form.recipientName}
+              onChange={(value) => setForm({ ...form, recipientName: value })}
+            />
+          </Field>
+          <Field label="Số điện thoại">
+            <TextInput
+              value={form.phoneNumber}
+              onChange={(value) => setForm({ ...form, phoneNumber: value })}
+            />
+          </Field>
+          <Field label="Số nhà, đường">
+            <TextInput
+              value={form.detail}
+              onChange={(value) => setForm({ ...form, detail: value })}
+            />
+          </Field>
+          <Field label="Phường/Xã">
+            <TextInput
+              value={form.ward}
+              onChange={(value) => setForm({ ...form, ward: value })}
+            />
+          </Field>
+          <Field label="Quận/Huyện">
+            <TextInput
+              value={form.district}
+              onChange={(value) => setForm({ ...form, district: value })}
+            />
+          </Field>
+          <Field label="Tỉnh/Thành phố">
+            <TextInput
+              value={form.city}
+              onChange={(value) => setForm({ ...form, city: value })}
+            />
+          </Field>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.defaultAddress}
+            onChange={(event) =>
+              setForm({ ...form, defaultAddress: event.target.checked })
+            }
+          />
+          Đặt làm địa chỉ mặc định
+        </label>
+        <div className="mt-3 flex gap-2">
+          <Button onClick={saveAddress}>
+            {editingId ? "Cập nhật địa chỉ" : "Thêm địa chỉ"}
+          </Button>
+          {editingId && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setEditingId(null);
+                setForm({ ...emptyAddress });
+              }}
+            >
+              Huỷ
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}

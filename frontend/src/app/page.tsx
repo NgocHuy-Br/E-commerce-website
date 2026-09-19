@@ -1,202 +1,350 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { AccountPanel } from "./components/AccountPanel";
+import { AccountManager } from "./components/admin/AccountManager";
+import { CatalogModeration } from "./components/admin/CatalogModeration";
+import { Dashboard } from "./components/admin/Dashboard";
+import { OrderMonitor } from "./components/admin/OrderMonitor";
+import { StoreApproval } from "./components/admin/StoreApproval";
+import { VoucherManager } from "./components/admin/VoucherManager";
+import { MyOrders } from "./components/buyer/MyOrders";
+import { ProductCatalog } from "./components/buyer/ProductCatalog";
+import { ProfilePanel } from "./components/buyer/ProfilePanel";
+import { CartPanel } from "./components/CartPanel";
+import { ProductManager } from "./components/seller/ProductManager";
+import { SellerOrders } from "./components/seller/SellerOrders";
+import { StorePanel } from "./components/seller/StorePanel";
+import { Badge, Card } from "./components/ui";
+import { api, API_BASE_URL, errorMessage } from "./lib/api";
+import { useLoadEffect } from "./lib/hooks";
+import { useSession } from "./lib/session";
+import type { Address, CartItem, Product, Store } from "./lib/types";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+type MainTab = "buyer" | "seller" | "admin";
+type BuyerTab = "catalog" | "orders" | "profile";
+type SellerTab = "store" | "products" | "orders";
+type AdminTab =
+  "dashboard" | "accounts" | "stores" | "catalog" | "orders" | "vouchers";
 
-type Product = {
-  id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  stockQuantity: number;
-  imageUrl: string | null;
+const toneClasses: Record<string, string> = {
+  info: "text-slate-600",
+  success: "text-teal-800",
+  error: "text-rose-600",
 };
-
-type CartItem = {
-  productId: number;
-  productName: string;
-  unitPrice: number;
-  quantity: number;
-};
-
-type AuthResponse = {
-  accessToken: string;
-  email: string;
-  roles: string[];
-};
-
-type Profile = { email: string; fullName: string | null; phoneNumber: string | null };
-type Store = { id: number; name: string; status: string };
-type Category = { id: number; name: string };
-type Account = { id: number; email: string; roles: string[]; status: string };
-type Order = { id: number; status: string; totalAmount: number };
 
 export default function Home() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [auth, setAuth] = useState<AuthResponse | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const { session, token, signIn, signOut, hasRole } = useSession();
+  const [message, setMessage] = useState({
+    text: "Sẵn sàng kết nối API Gateway.",
+    tone: "info" as "info" | "success" | "error",
+  });
+  const [mainTab, setMainTab] = useState<MainTab>("buyer");
+  const [buyerTab, setBuyerTab] = useState<BuyerTab>("catalog");
+  const [sellerTab, setSellerTab] = useState<SellerTab>("store");
+  const [adminTab, setAdminTab] = useState<AdminTab>("dashboard");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [keyword, setKeyword] = useState("");
-  const [message, setMessage] = useState("Sẵn sàng kết nối API Gateway.");
-  const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<"buyer" | "seller" | "admin">("buyer");
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [store, setStore] = useState<Store | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [storeName, setStoreName] = useState("");
-  const [productName, setProductName] = useState("");
-  const [productPrice, setProductPrice] = useState("");
+  const [orderSignal, setOrderSignal] = useState(0);
 
-  const request = async <T,>(path: string, options: RequestInit = {}) => {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(auth ? { Authorization: `Bearer ${auth.accessToken}` } : {}),
-        ...options.headers,
-      },
-    });
+  const notify = useCallback(
+    (text: string, tone: "info" | "success" | "error" = "info") => {
+      setMessage({ text, tone });
+    },
+    [],
+  );
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(body || `HTTP ${response.status}`);
-    }
-    return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
-  };
+  /** Nạp giỏ hàng và cửa hàng của người dùng sau khi đăng nhập. */
+  const loadSessionData = useCallback(async () => {
+    if (!token) return;
+    const [cartData, storeData] = await Promise.all([
+      api<CartItem[]>("/api/orders/cart", { token }).catch(
+        () => [] as CartItem[],
+      ),
+      api<Store>("/api/stores/mine", { token }).catch(() => null),
+    ]);
+    setCart(cartData);
+    setStore(storeData);
+  }, [token]);
 
-  const authenticate = async (path: "/api/auth/register" | "/api/auth/login") => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const result = (await response.json()) as AuthResponse;
-      setAuth(result);
-      setMessage(`${path.endsWith("register") ? "Đăng ký" : "Đăng nhập"} thành công: ${result.email}`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không thể xác thực tài khoản.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useLoadEffect(loadSessionData);
 
-  const searchProducts = async () => {
-    try {
-      setProducts(await request<Product[]>(`/api/products?keyword=${encodeURIComponent(keyword)}`));
-      setMessage("Đã tải danh sách sản phẩm.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không thể tải sản phẩm.");
-    }
-  };
+  const addToCart = useCallback(
+    async (product: Product, quantity: number) => {
+      if (!token) {
+        notify("Bạn cần đăng nhập để mua hàng.", "error");
+        return;
+      }
+      try {
+        setCart(
+          await api<CartItem[]>("/api/orders/cart/items", {
+            method: "POST",
+            token,
+            body: { productId: product.id, quantity },
+          }),
+        );
+        notify(`Đã thêm ${product.name} vào giỏ hàng.`, "success");
+      } catch (error) {
+        notify(errorMessage(error, "Không thể thêm vào giỏ hàng."), "error");
+      }
+    },
+    [token, notify],
+  );
 
-  const addToCart = async (product: Product) => {
-    try {
-      setCart(await request<CartItem[]>("/api/orders/cart/items", {
-        method: "POST",
-        body: JSON.stringify({ productId: product.id, productName: product.name, unitPrice: product.price, quantity: 1 }),
-      }));
-      setMessage(`Đã thêm ${product.name} vào giỏ hàng.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Cần đăng nhập để thêm giỏ hàng.");
-    }
-  };
-
-  const loadCart = async () => {
-    try {
-      setCart(await request<CartItem[]>("/api/orders/cart"));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không thể tải giỏ hàng.");
-    }
-  };
-
-  const checkout = async () => {
-    try {
-      const order = await request<{ id: number }>("/api/orders/checkout", {
-        method: "POST",
-        body: JSON.stringify({ shippingAddress: "Địa chỉ demo, Hà Nội", paymentMethod: "COD" }),
-      });
-      setCart([]);
-      setMessage(`Đặt hàng thành công. Mã đơn: #${order.id}`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không thể đặt hàng.");
-    }
-  };
-
-  const loadBuyerData = async () => {
-    try {
-      const [profileData, orderData] = await Promise.all([request<Profile>("/api/users/me"), request<Order[]>("/api/orders/mine")]);
-      setProfile(profileData);
-      setOrders(orderData);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể tải dữ liệu buyer."); }
-  };
-
-  const createStore = async () => {
-    try {
-      const data = await request<Store>("/api/stores", { method: "POST", body: JSON.stringify({ name: storeName, description: "Cửa hàng trên sàn", address: "Hà Nội", phoneNumber: "0900000000", logoUrl: null }) });
-      setStore(data); setMessage("Đã gửi yêu cầu mở shop. Admin cần duyệt trước khi đăng sản phẩm.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể tạo shop."); }
-  };
-
-  const loadSellerData = async () => {
-    try {
-      const [storeData, categoryData] = await Promise.all([request<Store>("/api/stores/mine"), request<Category[]>("/api/products/categories")]);
-      setStore(storeData); setCategories(categoryData);
-    } catch { setMessage("Chưa có shop hoặc chưa có quyền SELLER. Hãy tạo shop và chờ admin duyệt."); }
-  };
-
-  const createProduct = async () => {
-    if (!store || categories.length === 0) return;
-    try {
-      await request<Product>("/api/products", { method: "POST", body: JSON.stringify({ storeId: store.id, categoryId: categories[0].id, name: productName, description: "Sản phẩm mới", price: Number(productPrice), stockQuantity: 10, imageUrl: null }) });
-      setMessage("Đã đăng sản phẩm."); setProductName(""); setProductPrice("");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể đăng sản phẩm."); }
-  };
-
-  const loadAdminData = async () => {
-    try { setAccounts(await request<Account[]>("/api/auth/admin/accounts")); }
-    catch { setMessage("Tài khoản hiện tại không có quyền ADMIN."); }
-  };
+  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
       <header className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <div><p className="text-xl font-semibold">Mua Sắm Nhom14</p><p className="text-sm text-slate-500">E-commerce microservices demo</p></div>
-          <p className="text-sm text-slate-600">{auth ? `${auth.email} (${auth.roles.join(", ")})` : "Chưa đăng nhập"}</p>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-5">
+          <div>
+            <p className="text-xl font-semibold">Mua Sắm Nhom14</p>
+            <p className="text-sm text-slate-500">
+              Sàn thương mại điện tử trên kiến trúc microservices
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <Badge tone="neutral">Giỏ hàng: {cartCount}</Badge>
+            <span className="text-slate-600">
+              {session
+                ? `${session.email} (${session.roles.join(", ")})`
+                : "Chưa đăng nhập"}
+            </span>
+          </div>
         </div>
       </header>
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[360px_1fr]">
+
+      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[340px_1fr]">
         <aside className="space-y-5">
-          <section className="border border-stone-200 bg-white p-5 shadow-sm">
-            <h1 className="text-lg font-semibold">Tài khoản</h1>
-            <div className="mt-4 space-y-3"><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full border border-stone-300 px-3 py-2" /><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Mật khẩu (ít nhất 6 ký tự)" className="w-full border border-stone-300 px-3 py-2" /></div>
-            <div className="mt-3 flex gap-2"><button onClick={() => authenticate("/api/auth/register")} disabled={loading} className="bg-teal-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Đăng ký</button><button onClick={() => authenticate("/api/auth/login")} disabled={loading} className="border border-teal-700 px-3 py-2 text-sm font-medium text-teal-800 disabled:opacity-50">Đăng nhập</button></div>
-          </section>
-          <section className="border border-stone-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Giỏ hàng</h2><button onClick={loadCart} className="text-sm text-teal-800">Làm mới</button></div><div className="mt-3 space-y-2 text-sm">{cart.length === 0 ? <p className="text-slate-500">Chưa có sản phẩm.</p> : cart.map((item) => <p key={item.productId}>{item.productName} x{item.quantity} - {item.unitPrice.toLocaleString("vi-VN")}đ</p>)}</div>{cart.length > 0 && <button onClick={checkout} className="mt-4 bg-slate-900 px-3 py-2 text-sm font-medium text-white">Đặt hàng COD</button>}</section>
+          <AccountPanel
+            session={session}
+            onSignIn={(next) => {
+              signIn(next);
+              setMainTab("buyer");
+            }}
+            onSignOut={() => {
+              signOut();
+              setCart([]);
+              setStore(null);
+              setAddresses([]);
+              notify("Đã đăng xuất.", "info");
+            }}
+            notify={notify}
+          />
+          {token && (
+            <CartPanel
+              token={token}
+              cart={cart}
+              addresses={addresses}
+              onCartChange={setCart}
+              onOrdered={() => {
+                setOrderSignal((value) => value + 1);
+                setBuyerTab("orders");
+                setMainTab("buyer");
+              }}
+              notify={notify}
+            />
+          )}
         </aside>
-        <section>
-          <div className="border border-stone-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-600">{message}</p><p className="mt-1 text-xs text-slate-400">Gateway: {API_BASE_URL}</p></div>
-          <div className="mt-5 flex flex-wrap gap-2 border-b border-stone-200 pb-3">
-            <button onClick={() => { setView("buyer"); loadBuyerData(); }} className={`px-3 py-2 text-sm font-medium ${view === "buyer" ? "bg-teal-700 text-white" : "border border-stone-300"}`}>Người mua</button>
-            <button onClick={() => { setView("seller"); loadSellerData(); }} disabled={!auth?.roles.includes("SELLER") && !auth?.roles.includes("BUYER")} className={`px-3 py-2 text-sm font-medium ${view === "seller" ? "bg-teal-700 text-white" : "border border-stone-300"}`}>Người bán</button>
-            <button onClick={() => { setView("admin"); loadAdminData(); }} disabled={!auth?.roles.includes("ADMIN")} className={`px-3 py-2 text-sm font-medium ${view === "admin" ? "bg-teal-700 text-white" : "border border-stone-300"}`}>Quản trị</button>
-          </div>
-          {view === "buyer" && <><div className="mt-6 flex gap-2"><input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchProducts()} placeholder="Tìm sản phẩm" className="min-w-0 flex-1 border border-stone-300 bg-white px-3 py-2" /><button onClick={searchProducts} className="bg-amber-500 px-4 py-2 text-sm font-medium text-slate-900">Tìm kiếm</button></div>
-          {profile && <div className="mt-4 border border-stone-200 bg-white p-4 text-sm"><b>Hồ sơ:</b> {profile.fullName || "Chưa cập nhật tên"} · {profile.email} · {profile.phoneNumber || "Chưa có SĐT"}</div>}
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="border border-stone-200 bg-white p-4 shadow-sm"><div className="flex aspect-square items-center justify-center bg-stone-100 text-sm text-slate-400">{product.imageUrl ? "Có ảnh sản phẩm" : "Chưa có ảnh"}</div><h2 className="mt-3 font-semibold">{product.name}</h2><p className="mt-1 line-clamp-2 text-sm text-slate-600">{product.description || "Chưa có mô tả"}</p><p className="mt-3 font-semibold text-teal-800">{product.price.toLocaleString("vi-VN")}đ</p><button onClick={() => addToCart(product)} disabled={!auth || product.stockQuantity < 1} className="mt-3 w-full bg-teal-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{auth ? "Thêm vào giỏ" : "Đăng nhập để mua"}</button></article>)}</div>
-          {orders.length > 0 && <div className="mt-5 border border-stone-200 bg-white p-4 text-sm"><b>Đơn hàng:</b>{orders.map((order) => <p key={order.id}>#{order.id} · {order.status} · {order.totalAmount.toLocaleString("vi-VN")}đ</p>)}</div>}</>}
-          {view === "seller" && <div className="mt-6 space-y-4"><div className="border border-stone-200 bg-white p-5"><h2 className="font-semibold">Cửa hàng của tôi</h2><p className="mt-2 text-sm">{store ? `${store.name} · ${store.status}` : "Chưa có cửa hàng"}</p><div className="mt-3 flex gap-2"><input value={storeName} onChange={(event) => setStoreName(event.target.value)} placeholder="Tên cửa hàng" className="flex-1 border border-stone-300 px-3 py-2"/><button onClick={createStore} className="bg-teal-700 px-3 py-2 text-sm text-white">Mở shop</button></div></div>{store?.status === "ACTIVE" && <div className="border border-stone-200 bg-white p-5"><h2 className="font-semibold">Đăng sản phẩm</h2><div className="mt-3 flex gap-2"><input value={productName} onChange={(event) => setProductName(event.target.value)} placeholder="Tên sản phẩm" className="flex-1 border border-stone-300 px-3 py-2"/><input value={productPrice} onChange={(event) => setProductPrice(event.target.value)} placeholder="Giá" type="number" className="w-32 border border-stone-300 px-3 py-2"/><button onClick={createProduct} className="bg-amber-500 px-3 py-2 text-sm">Đăng bán</button></div></div>}</div>}
-          {view === "admin" && <div className="mt-6 border border-stone-200 bg-white p-5"><h2 className="font-semibold">Tài khoản hệ thống</h2><div className="mt-3 space-y-2 text-sm">{accounts.map((account) => <p key={account.id}>#{account.id} · {account.email} · {account.roles.join(", ")} · {account.status}</p>)}</div></div>}
+
+        <section className="space-y-5">
+          <Card>
+            <p className={`text-sm ${toneClasses[message.tone]}`}>
+              {message.text}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              API Gateway: {API_BASE_URL}
+            </p>
+          </Card>
+
+          <nav className="flex flex-wrap gap-2 border-b border-stone-200 pb-3">
+            <TabButton
+              active={mainTab === "buyer"}
+              onClick={() => setMainTab("buyer")}
+            >
+              Người mua
+            </TabButton>
+            <TabButton
+              active={mainTab === "seller"}
+              disabled={!session}
+              onClick={() => setMainTab("seller")}
+            >
+              Người bán
+            </TabButton>
+            <TabButton
+              active={mainTab === "admin"}
+              disabled={!hasRole("ADMIN")}
+              onClick={() => setMainTab("admin")}
+            >
+              Quản trị viên
+            </TabButton>
+          </nav>
+
+          {mainTab === "buyer" && (
+            <>
+              <SubTabs
+                tabs={[
+                  { key: "catalog", label: "Tìm kiếm hàng hoá" },
+                  { key: "orders", label: "Đơn hàng của tôi" },
+                  { key: "profile", label: "Thông tin cá nhân" },
+                ]}
+                active={buyerTab}
+                onChange={(key) => setBuyerTab(key as BuyerTab)}
+              />
+              {buyerTab === "catalog" && (
+                <ProductCatalog
+                  token={token}
+                  onAddToCart={addToCart}
+                  notify={notify}
+                />
+              )}
+              {buyerTab === "orders" && (
+                <MyOrders key={orderSignal} token={token} notify={notify} />
+              )}
+              {buyerTab === "profile" && (
+                <ProfilePanel
+                  token={token}
+                  onAddressesChange={setAddresses}
+                  notify={notify}
+                />
+              )}
+            </>
+          )}
+
+          {mainTab === "seller" && (
+            <>
+              <SubTabs
+                tabs={[
+                  { key: "store", label: "Cửa hàng" },
+                  { key: "products", label: "Đăng bán & khuyến mãi" },
+                  { key: "orders", label: "Đơn hàng của shop" },
+                ]}
+                active={sellerTab}
+                onChange={(key) => setSellerTab(key as SellerTab)}
+              />
+              {sellerTab === "store" && (
+                <StorePanel
+                  key={store?.id ?? "new-store"}
+                  token={token}
+                  store={store}
+                  onStoreChange={setStore}
+                  notify={notify}
+                />
+              )}
+              {sellerTab === "products" && (
+                <ProductManager token={token} store={store} notify={notify} />
+              )}
+              {sellerTab === "orders" &&
+                (hasRole("SELLER") ? (
+                  <SellerOrders token={token} notify={notify} />
+                ) : (
+                  <Card>
+                    <p className="text-sm text-slate-500">
+                      Bạn cần được cấp quyền SELLER (sau khi admin duyệt cửa
+                      hàng) để xem đơn hàng.
+                    </p>
+                  </Card>
+                ))}
+            </>
+          )}
+
+          {mainTab === "admin" && hasRole("ADMIN") && (
+            <>
+              <SubTabs
+                tabs={[
+                  { key: "dashboard", label: "Tổng quan" },
+                  { key: "accounts", label: "Tài khoản" },
+                  { key: "stores", label: "Cửa hàng" },
+                  { key: "catalog", label: "Danh mục & sản phẩm" },
+                  { key: "orders", label: "Đơn hàng" },
+                  { key: "vouchers", label: "Mã giảm giá" },
+                ]}
+                active={adminTab}
+                onChange={(key) => setAdminTab(key as AdminTab)}
+              />
+              {adminTab === "dashboard" && (
+                <Dashboard token={token} notify={notify} />
+              )}
+              {adminTab === "accounts" && (
+                <AccountManager token={token} notify={notify} />
+              )}
+              {adminTab === "stores" && (
+                <StoreApproval token={token} notify={notify} />
+              )}
+              {adminTab === "catalog" && (
+                <CatalogModeration token={token} notify={notify} />
+              )}
+              {adminTab === "orders" && (
+                <OrderMonitor token={token} notify={notify} />
+              )}
+              {adminTab === "vouchers" && (
+                <VoucherManager token={token} notify={notify} />
+              )}
+            </>
+          )}
         </section>
       </main>
+
+      <footer className="border-t border-stone-200 bg-white py-5 text-center text-xs text-slate-400">
+        Nhóm 14 · Thực tập · Nền tảng TMĐT microservices (Spring Boot + Next.js)
+      </footer>
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? "bg-teal-700 text-white"
+          : "border border-stone-300 text-slate-700 hover:bg-stone-100"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SubTabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { key: string; label: string }[];
+  active: string;
+  onChange: (key: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => onChange(tab.key)}
+          className={`px-3 py-1.5 text-sm transition ${
+            active === tab.key
+              ? "border-b-2 border-teal-700 font-medium text-teal-800"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
     </div>
   );
 }

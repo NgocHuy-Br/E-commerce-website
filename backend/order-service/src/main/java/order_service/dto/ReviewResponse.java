@@ -1,4 +1,7 @@
 package order_service.dto;
 
-public record ReviewResponse(Long id, Long productId, int rating, String comment) {
+import java.time.Instant;
+
+public record ReviewResponse(Long id, Long orderId, Long productId, Long buyerId, int rating, String comment,
+        Instant createdAt) {
 }

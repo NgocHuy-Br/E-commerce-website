@@ -13,9 +13,14 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
 
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
   internal:
     key: ${INTERNAL_API_KEY:nhom14-development-internal-key}
+  store-service:
+    url: ${STORE_SERVICE_URL:http://localhost:8084}
