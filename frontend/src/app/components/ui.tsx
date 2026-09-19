@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 export function Card({
@@ -232,5 +234,57 @@ export function StatTile({
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
     </div>
+  );
+}
+
+/** Nút quay lại trang trước. */
+export function BackButton({ label = "Quay lại" }: { label?: string }) {
+  const router = useRouter();
+  return (
+    <Button variant="ghost" onClick={() => router.back()}>
+      ← {label}
+    </Button>
+  );
+}
+
+export function PageHeader({
+  title,
+  description,
+  back = true,
+  action,
+}: {
+  title: string;
+  description?: string;
+  back?: boolean;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        {back && (
+          <div className="mb-2">
+            <BackButton />
+          </div>
+        )}
+        <h1 className="text-xl font-semibold">{title}</h1>
+        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/** Nhắc đăng nhập cho các trang cần quyền. */
+export function RequireLogin({ next, message }: { next: string; message?: string }) {
+  return (
+    <Card>
+      <p className="text-sm text-slate-600">{message ?? "Bạn cần đăng nhập để xem nội dung này."}</p>
+      <Link
+        href={`/login?next=${encodeURIComponent(next)}`}
+        className="mt-3 inline-block bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800"
+      >
+        Đăng nhập
+      </Link>
+    </Card>
   );
 }

@@ -3,8 +3,9 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type { Order, OrderStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty } from "../ui";
 
@@ -24,13 +25,9 @@ const nextStatuses: Partial<
   SHIPPING: [{ status: "DELIVERED", label: "Đã giao xong" }],
 };
 
-export function SellerOrders({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function SellerOrders() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
 

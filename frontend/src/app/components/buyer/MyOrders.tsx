@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
-import { useLoadEffect } from "../../lib/hooks";
 import { formatCurrency, formatDateTime } from "../../lib/format";
-import type { Notify } from "../../lib/session";
+import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import type { Order, OrderItem } from "../../lib/types";
 import { Stars } from "../Stars";
 import { Badge, Button, Card, Empty, Field, Modal, TextArea } from "../ui";
@@ -25,13 +27,9 @@ const paymentLabels: Record<string, string> = {
   REFUNDED: "Đã hoàn tiền",
 };
 
-export function MyOrders({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function MyOrders() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviewing, setReviewing] = useState<{
     order: Order;
@@ -58,14 +56,6 @@ export function MyOrders({
       notify(errorMessage(error, "Không thực hiện được yêu cầu."), "error");
     }
   };
-
-  if (!token) {
-    return (
-      <Card title="Đơn hàng của tôi">
-        <Empty>Đăng nhập để xem đơn hàng.</Empty>
-      </Card>
-    );
-  }
 
   return (
     <Card
@@ -117,9 +107,9 @@ export function MyOrders({
                     key={item.productId}
                     className="flex flex-wrap items-center justify-between gap-2"
                   >
-                    <span>
+                    <Link href={`/products/${item.productId}`} className="hover:text-teal-800">
                       {item.productName} × {item.quantity}
-                    </span>
+                    </Link>
                     <span className="flex items-center gap-3">
                       <span className="text-slate-600">
                         {formatCurrency(item.unitPrice * item.quantity)}
@@ -200,7 +190,6 @@ export function MyOrders({
             setReviewing(null);
             await load();
           }}
-          notify={notify}
         />
       )}
     </Card>
@@ -213,15 +202,14 @@ function ReviewModal({
   item,
   onClose,
   onDone,
-  notify,
 }: {
   token: string | null;
   order: Order;
   item: OrderItem;
   onClose: () => void;
   onDone: () => Promise<void>;
-  notify: Notify;
 }) {
+  const notify = useNotify();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
 

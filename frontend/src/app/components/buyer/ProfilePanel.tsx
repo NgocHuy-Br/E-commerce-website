@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
-import type { Notify } from "../../lib/session";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import type { Address, Profile } from "../../lib/types";
 import { Badge, Button, Card, Empty, Field, TextInput } from "../ui";
 
@@ -18,15 +19,9 @@ const emptyAddress = {
 };
 
 /** Quản lý thông tin cá nhân và sổ địa chỉ giao hàng. */
-export function ProfilePanel({
-  token,
-  onAddressesChange,
-  notify,
-}: {
-  token: string | null;
-  onAddressesChange: (addresses: Address[]) => void;
-  notify: Notify;
-}) {
+export function ProfilePanel() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -47,11 +42,10 @@ export function ProfilePanel({
       setPhoneNumber(profileData.phoneNumber ?? "");
       setAvatarUrl(profileData.avatarUrl ?? "");
       setAddresses(addressData);
-      onAddressesChange(addressData);
     } catch (error) {
       notify(errorMessage(error, "Không thể tải thông tin cá nhân."), "error");
     }
-  }, [token, notify, onAddressesChange]);
+  }, [token, notify]);
 
   useLoadEffect(load);
 
@@ -103,14 +97,6 @@ export function ProfilePanel({
       notify(errorMessage(error, "Không thể xoá địa chỉ."), "error");
     }
   };
-
-  if (!token) {
-    return (
-      <Card title="Thông tin cá nhân">
-        <Empty>Đăng nhập để quản lý thông tin cá nhân.</Empty>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-5">

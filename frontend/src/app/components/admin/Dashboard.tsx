@@ -3,8 +3,9 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import { formatCurrency } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type {
   AccountStats,
   CatalogStats,
@@ -14,13 +15,9 @@ import type {
 import { Button, Card, StatTile } from "../ui";
 
 /** Tổng quan nền tảng cho quản trị viên. */
-export function Dashboard({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function Dashboard() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [accounts, setAccounts] = useState<AccountStats | null>(null);
   const [stores, setStores] = useState<StoreStats | null>(null);
   const [catalog, setCatalog] = useState<CatalogStats | null>(null);

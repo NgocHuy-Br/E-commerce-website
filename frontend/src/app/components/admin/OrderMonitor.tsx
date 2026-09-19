@@ -3,8 +3,9 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type { Order, OrderStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty, Select } from "../ui";
 
@@ -18,13 +19,9 @@ const statuses: OrderStatus[] = [
 ];
 
 /** Theo dõi toàn bộ đơn hàng của nền tảng và can thiệp khi cần. */
-export function OrderMonitor({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function OrderMonitor() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("");
 

@@ -3,20 +3,17 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
-import type { Notify } from "../../lib/session";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import type { Account, Role } from "../../lib/types";
 import { Badge, Button, Card, Empty, TextInput } from "../ui";
 
 const allRoles: Role[] = ["BUYER", "SELLER", "ADMIN"];
 
 /** Quản lý tài khoản trên hệ thống: phân quyền và khoá/mở khoá. */
-export function AccountManager({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function AccountManager() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [keyword, setKeyword] = useState("");
 

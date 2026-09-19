@@ -3,13 +3,14 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import {
   defaultPromotionRange,
   formatCurrency,
   formatDateTime,
   toIsoInstant,
 } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type { Category, Product, Promotion, Store } from "../../lib/types";
 import {
   Badge,
@@ -33,15 +34,9 @@ const emptyProduct = {
 };
 
 /** Đăng bán, sửa, ẩn/hiện sản phẩm và đăng khuyến mãi. */
-export function ProductManager({
-  token,
-  store,
-  notify,
-}: {
-  token: string | null;
-  store: Store | null;
-  notify: Notify;
-}) {
+export function ProductManager({ store }: { store: Store | null }) {
+  const { token } = useSession();
+  const notify = useNotify();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -340,7 +335,6 @@ export function ProductManager({
             setPromotingProduct(null);
             await load();
           }}
-          notify={notify}
         />
       )}
     </div>
@@ -352,14 +346,13 @@ function PromotionModal({
   product,
   onClose,
   onDone,
-  notify,
 }: {
   token: string | null;
   product: Product;
   onClose: () => void;
   onDone: () => Promise<void>;
-  notify: Notify;
 }) {
+  const notify = useNotify();
   const range = defaultPromotionRange();
   const [discountPercent, setDiscountPercent] = useState("10");
   const [startsAt, setStartsAt] = useState(range.startsAt);

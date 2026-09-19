@@ -3,18 +3,15 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage, query } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
-import type { Notify } from "../../lib/session";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import type { Store, StoreStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty, Select } from "../ui";
 
 /** Duyệt, từ chối, tạm ngưng cửa hàng. Duyệt ACTIVE sẽ cấp quyền SELLER cho chủ shop. */
-export function StoreApproval({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function StoreApproval() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [stores, setStores] = useState<Store[]>([]);
   const [status, setStatus] = useState("");
 

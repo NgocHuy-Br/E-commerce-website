@@ -110,6 +110,21 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
+Các trang (Next.js App Router):
+
+| Route | Nội dung |
+|---|---|
+| `/` | Trang chủ: tìm kiếm, lọc, sắp xếp sản phẩm; thêm vào giỏ trực tiếp |
+| `/login` | Trang đăng nhập / đăng ký riêng, hỗ trợ `?next=` để quay lại trang trước |
+| `/products/[id]` | Trang chi tiết sản phẩm: khuyến mãi, đánh giá & bình luận, thêm vào giỏ |
+| `/cart` | Trang giỏ hàng: sửa số lượng, chọn địa chỉ, mã giảm giá, đặt hàng |
+| `/orders` | Đơn hàng của tôi: thanh toán, huỷ đơn, đánh giá |
+| `/account` | Thông tin cá nhân, sổ địa chỉ, đổi mật khẩu |
+| `/seller` | Kênh người bán: cửa hàng, đăng bán & khuyến mãi, đơn hàng của shop |
+| `/admin` | Quản trị: tổng quan, tài khoản, cửa hàng, danh mục & sản phẩm, đơn hàng, mã giảm giá |
+
+Giỏ hàng nằm trên header ở mọi trang (kèm số lượng), các trang con đều có nút quay lại.
+
 Đổi địa chỉ gateway bằng `NEXT_PUBLIC_API_BASE_URL` trong `frontend/.env.local`.
 
 ### Tạo tài khoản admin đầu tiên

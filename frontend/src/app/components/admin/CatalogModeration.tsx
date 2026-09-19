@@ -3,19 +3,16 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage, query } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import { formatCurrency } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type { Category, Product, ProductStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
 
 /** Quản lý danh mục và kiểm duyệt sản phẩm trên sàn. */
-export function CatalogModeration({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function CatalogModeration() {
+  const { token } = useSession();
+  const notify = useNotify();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [status, setStatus] = useState("");

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { api, errorMessage } from "../../lib/api";
-import type { Notify } from "../../lib/session";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import type { Store } from "../../lib/types";
 import { Badge, Button, Card, Field, TextArea, TextInput } from "../ui";
 
@@ -22,16 +23,14 @@ const statusLabels: Record<string, string> = {
 
 /** Người bán mở shop và cập nhật thông tin cửa hàng của mình. */
 export function StorePanel({
-  token,
   store,
   onStoreChange,
-  notify,
 }: {
-  token: string | null;
   store: Store | null;
   onStoreChange: (store: Store) => void;
-  notify: Notify;
 }) {
+  const { token } = useSession();
+  const notify = useNotify();
   // Component được parent remount qua prop key khi cửa hàng đổi, nên khởi tạo trực tiếp từ dữ liệu.
   const [form, setForm] = useState({
     name: store?.name ?? "",

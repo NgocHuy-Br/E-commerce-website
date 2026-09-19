@@ -3,24 +3,21 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import { useSession } from "../../lib/session";
+import { useNotify } from "../../lib/toast";
 import {
   defaultPromotionRange,
   formatCurrency,
   formatDateTime,
   toIsoInstant,
 } from "../../lib/format";
-import type { Notify } from "../../lib/session";
 import type { Voucher } from "../../lib/types";
 import { Button, Card, Empty, Field, TextInput } from "../ui";
 
 /** Quản lý mã giảm giá của nền tảng. */
-export function VoucherManager({
-  token,
-  notify,
-}: {
-  token: string | null;
-  notify: Notify;
-}) {
+export function VoucherManager() {
+  const { token } = useSession();
+  const notify = useNotify();
   const range = defaultPromotionRange();
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [code, setCode] = useState("");
