@@ -15,17 +15,17 @@ function ToastBanner() {
   const { toast, dismiss } = useToast();
   if (!toast) return null;
   return (
-    <div className="fixed inset-x-0 top-20 z-50 flex justify-center px-4">
-      <div
-        className={`flex max-w-xl items-start gap-3 border px-4 py-3 text-sm shadow-md ${
+    <div className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+      {/* Tự tắt sau vài giây; bấm vào để tắt ngay. */}
+      <button
+        type="button"
+        onClick={dismiss}
+        className={`pointer-events-auto max-w-xl border px-4 py-3 text-left text-sm shadow-md ${
           toneClasses[toast.tone]
         }`}
       >
-        <span className="flex-1">{toast.message}</span>
-        <button type="button" onClick={dismiss} className="text-xs font-semibold uppercase">
-          Đóng
-        </button>
-      </div>
+        {toast.message}
+      </button>
     </div>
   );
 }

@@ -23,12 +23,12 @@ public class StoreVerificationClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError,
                         (request, response) -> {
-                            throw new ResponseStatusException(response.getStatusCode(), "Store verification failed");
+                            throw new ResponseStatusException(response.getStatusCode(), "Không xác minh được cửa hàng");
                         })
                 .body(StoreVerificationResponse.class);
         if (store == null || !store.ownerId().equals(sellerId) || !"ACTIVE".equals(store.status())) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
-                    "An active seller store is required");
+                    "Bạn cần một cửa hàng đang hoạt động để đăng bán");
         }
     }
 

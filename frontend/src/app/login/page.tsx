@@ -23,10 +23,19 @@ function LoginForm() {
   const nextPath = searchParams.get("next") || "/";
 
   const submit = async () => {
+    // Cắt khoảng trắng để email dán từ nơi khác không bị báo sai định dạng.
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
+      notify("Hãy nhập email và mật khẩu.", "error");
+      return;
+    }
     setLoading(true);
     try {
       const path = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const result = await api<AuthResponse>(path, { method: "POST", body: { email, password } });
+      const result = await api<AuthResponse>(path, {
+        method: "POST",
+        body: { email: normalizedEmail, password },
+      });
       signIn(result);
       notify(
         `${mode === "login" ? "Đăng nhập" : "Đăng ký"} thành công: ${result.email}`,
@@ -65,7 +74,12 @@ function LoginForm() {
 
         <div className="space-y-3">
           <Field label="Email">
-            <TextInput value={email} onChange={setEmail} placeholder="ban@example.com" />
+            <TextInput
+              value={email}
+              onChange={setEmail}
+              placeholder="ban@example.com"
+              onEnter={submit}
+            />
           </Field>
           <Field label="Mật khẩu">
             <TextInput

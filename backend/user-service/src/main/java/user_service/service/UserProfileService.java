@@ -86,7 +86,7 @@ public class UserProfileService {
 
     private Address findOwnedAddress(Long addressId, Long userId) {
         return addressRepository.findByIdAndProfileUserId(addressId, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Address not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy địa chỉ"));
     }
 
     private ProfileResponse toProfileResponse(UserProfile profile) {

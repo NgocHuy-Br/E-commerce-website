@@ -40,7 +40,7 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
         if (accountRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã được đăng ký");
         }
 
         Account account = accountRepository.save(new Account(
@@ -53,11 +53,11 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
         Account account = accountRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
 
         if (account.getStatus() != AccountStatus.ACTIVE
                 || !passwordEncoder.matches(request.password(), account.getPasswordHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
         }
 
         return toAuthResponse(account);
@@ -130,7 +130,7 @@ public class AuthService {
 
     private Account findAccount(Long accountId) {
         return accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản"));
     }
 
     private String normalizeEmail(String email) {

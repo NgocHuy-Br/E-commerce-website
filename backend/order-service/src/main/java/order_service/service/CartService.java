@@ -34,7 +34,7 @@ public class CartService {
         try {
             return objectMapper.readValue(value, CART_TYPE);
         } catch (Exception exception) {
-            throw new IllegalStateException("Could not read cart", exception);
+            throw new IllegalStateException("Không đọc được giỏ hàng", exception);
         }
     }
 
@@ -104,7 +104,7 @@ public class CartService {
         try {
             redisTemplate.opsForValue().set(key(userId), objectMapper.writeValueAsString(cart));
         } catch (Exception exception) {
-            throw new IllegalStateException("Could not save cart", exception);
+            throw new IllegalStateException("Không lưu được giỏ hàng", exception);
         }
     }
 

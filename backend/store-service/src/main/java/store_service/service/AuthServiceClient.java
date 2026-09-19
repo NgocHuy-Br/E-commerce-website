@@ -19,7 +19,7 @@ public class AuthServiceClient {
         client.patch().uri("/api/auth/admin/accounts/{id}/seller-role", accountId)
                 .header("Authorization", authorization).retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new ResponseStatusException(response.getStatusCode(), "Could not grant seller role");
+                    throw new ResponseStatusException(response.getStatusCode(), "Không thể cấp quyền người bán");
                 })
                 .toBodilessEntity();
     }
