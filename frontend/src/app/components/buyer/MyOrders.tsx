@@ -6,6 +6,12 @@ import { api, errorMessage } from "../../lib/api";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 import { useLoadEffect } from "../../lib/hooks";
 import {
+  ORDER_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  cancelBlockedReason,
+  canCancel,
+} from "../../lib/order";
+import {
   PAYMENT_METHODS,
   REFUND_NOTICE,
   paymentMethodLabel,
@@ -16,24 +22,8 @@ import type { Order, OrderItem, PaymentMethod } from "../../lib/types";
 import { Stars } from "../Stars";
 import { Badge, Button, Card, Empty, Field, Modal, TextArea } from "../ui";
 
-const statusLabels: Record<string, string> = {
-  PENDING: "Chờ xác nhận",
-  CONFIRMED: "Đã xác nhận",
-  PACKING: "Đang đóng gói",
-  SHIPPING: "Đang giao",
-  DELIVERED: "Đã nhận hàng",
-  CANCELLED: "Đã huỷ",
-};
-
-const paymentLabels: Record<string, string> = {
-  PENDING: "Chưa thanh toán",
-  PAID: "Đã thanh toán",
-  FAILED: "Thanh toán lỗi",
-  REFUNDED: "Đã hoàn tiền",
-};
-
-/** Các trạng thái mà người mua còn được huỷ đơn (shop chưa giao). */
-const CANCELLABLE_STATUSES = ["PENDING", "CONFIRMED", "PACKING"];
+const statusLabels = ORDER_STATUS_LABELS;
+const paymentLabels = PAYMENT_STATUS_LABELS;
 
 export function MyOrders() {
   const { token } = useSession();
@@ -71,7 +61,8 @@ export function MyOrders() {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
-            const canCancel = CANCELLABLE_STATUSES.includes(order.status);
+            const cancellable = canCancel(order.status);
+            const blockedReason = cancelBlockedReason(order.status);
             const canPay =
               order.paymentStatus === "PENDING" && order.status !== "CANCELLED";
             return (
@@ -166,7 +157,7 @@ export function MyOrders() {
                         Thanh toán
                       </Button>
                     )}
-                    {canCancel ? (
+                    {cancellable ? (
                       <Button
                         variant="danger"
                         onClick={() => setCancelling(order)}
@@ -174,9 +165,9 @@ export function MyOrders() {
                         Huỷ đơn
                       </Button>
                     ) : (
-                      order.status === "SHIPPING" && (
+                      blockedReason && (
                         <span className="text-xs text-slate-500">
-                          Đơn đang trên đường giao nên không thể huỷ.
+                          {blockedReason}
                         </span>
                       )
                     )}

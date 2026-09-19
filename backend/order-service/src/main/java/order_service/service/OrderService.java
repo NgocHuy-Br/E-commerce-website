@@ -35,6 +35,10 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
+    /** Từ khi đơn được giao cho vận chuyển (SHIPPING) trở đi thì không ai huỷ được nữa. */
+    private static final Set<OrderStatus> CANCELLABLE_STATUSES = Set.of(
+            OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKING);
+
     /** Các bước chuyển trạng thái đơn hàng được phép. */
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
             OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
@@ -146,17 +150,6 @@ public class OrderService {
         if (!order.getBuyerId().equals(buyerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Đơn hàng không thuộc về bạn");
         }
-        if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng đã được giao nên không thể huỷ");
-        }
-        if (order.getStatus() == OrderStatus.SHIPPING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng đang trên đường giao nên không thể huỷ");
-        }
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được huỷ trước đó");
-        }
         changeStatus(order, OrderStatus.CANCELLED);
         return toResponse(order);
     }
@@ -183,6 +176,9 @@ public class OrderService {
         if (order.getStatus() == status) {
             return;
         }
+        if (status == OrderStatus.CANCELLED) {
+            ensureCancellable(order);
+        }
         if (!ALLOWED_TRANSITIONS.getOrDefault(order.getStatus(), Set.of()).contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Không thể chuyển đơn hàng từ " + order.getStatus() + " sang " + status);
@@ -206,6 +202,20 @@ public class OrderService {
                         exception);
             }
         }
+    }
+
+    /** Thông báo rõ lý do khi đơn không còn huỷ được (áp dụng cho cả người mua, người bán và admin). */
+    private void ensureCancellable(CustomerOrder order) {
+        if (CANCELLABLE_STATUSES.contains(order.getStatus())) {
+            return;
+        }
+        String reason = switch (order.getStatus()) {
+            case SHIPPING -> "Đơn hàng đang trên đường giao nên không thể huỷ";
+            case DELIVERED -> "Đơn hàng đã được giao nên không thể huỷ";
+            case CANCELLED -> "Đơn hàng đã được huỷ trước đó";
+            default -> "Đơn hàng không thể huỷ ở trạng thái hiện tại";
+        };
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, reason);
     }
 
     private CustomerOrder findOrder(Long orderId) {

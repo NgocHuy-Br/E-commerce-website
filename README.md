@@ -78,7 +78,7 @@ Gọi nội bộ giữa các service:
 - Giá chốt đơn là giá sau khuyến mãi đang hiệu lực, do product-service trả về khi trừ kho — client không thể tự gửi giá.
 - Huỷ đơn sẽ hoàn kho và chuyển thanh toán đã trả sang `REFUNDED`.
 - Chuyển trạng thái đơn hàng được kiểm tra theo máy trạng thái, không cho nhảy bậc hay sửa đơn đã huỷ/đã giao.
-- Đơn đang giao (`SHIPPING`) hoặc đã giao (`DELIVERED`) thì người mua không huỷ được; đơn đã thanh toán khi huỷ sẽ chuyển sang `REFUNDED`.
+- Đơn chỉ huỷ được khi còn ở `PENDING`, `CONFIRMED` hoặc `PACKING`. Từ `SHIPPING` trở đi **không ai huỷ được** — kể cả người bán và quản trị viên; đơn đã thanh toán khi huỷ sẽ chuyển sang `REFUNDED`.
 - Mỗi chủ tài khoản chỉ mở được một cửa hàng; chỉ cửa hàng `ACTIVE` mới được đăng bán.
 - Quản trị viên không truy cập được giỏ hàng, đặt hàng, đơn hàng của tôi, mở cửa hàng hay đăng bán (trả 403).
 

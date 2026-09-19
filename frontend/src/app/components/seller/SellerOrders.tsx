@@ -3,27 +3,16 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import {
+  ALLOWED_NEXT_STATUSES,
+  ORDER_STATUS_LABELS,
+  cancelBlockedReason,
+} from "../../lib/order";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 import type { Order, OrderStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty } from "../ui";
-
-/** Bước xử lý tiếp theo mà người bán được phép chuyển. */
-const nextStatuses: Partial<
-  Record<OrderStatus, { status: OrderStatus; label: string }[]>
-> = {
-  PENDING: [
-    { status: "CONFIRMED", label: "Xác nhận đơn" },
-    { status: "CANCELLED", label: "Huỷ đơn" },
-  ],
-  CONFIRMED: [
-    { status: "PACKING", label: "Đóng gói" },
-    { status: "CANCELLED", label: "Huỷ đơn" },
-  ],
-  PACKING: [{ status: "SHIPPING", label: "Giao cho vận chuyển" }],
-  SHIPPING: [{ status: "DELIVERED", label: "Đã giao xong" }],
-};
 
 export function SellerOrders() {
   const { token } = useSession();
@@ -83,7 +72,7 @@ export function SellerOrders() {
                   <Badge
                     tone={order.status === "CANCELLED" ? "danger" : "info"}
                   >
-                    {order.status}
+                    {ORDER_STATUS_LABELS[order.status]}
                   </Badge>
                   <Badge
                     tone={
@@ -109,8 +98,13 @@ export function SellerOrders() {
                 <p className="font-semibold">
                   Tổng: {formatCurrency(order.totalAmount)}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {(nextStatuses[order.status] ?? []).map((action) => (
+                <div className="flex flex-wrap items-center gap-2">
+                  {cancelBlockedReason(order.status) && (
+                    <span className="text-xs text-slate-500">
+                      {cancelBlockedReason(order.status)}
+                    </span>
+                  )}
+                  {ALLOWED_NEXT_STATUSES[order.status].map((action) => (
                     <Button
                       key={action.status}
                       variant={

@@ -3,6 +3,12 @@
 import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
+import {
+  ALLOWED_NEXT_STATUSES,
+  ORDER_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  cancelBlockedReason,
+} from "../../lib/order";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/format";
@@ -67,7 +73,10 @@ export function OrderMonitor() {
               onChange={setFilter}
               options={[
                 { value: "", label: "Tất cả trạng thái" },
-                ...statuses.map((status) => ({ value: status, label: status })),
+                ...statuses.map((status) => ({
+                  value: status,
+                  label: ORDER_STATUS_LABELS[status],
+                })),
               ]}
             />
           </div>
@@ -88,14 +97,14 @@ export function OrderMonitor() {
                   <Badge
                     tone={order.status === "CANCELLED" ? "danger" : "info"}
                   >
-                    {order.status}
+                    {ORDER_STATUS_LABELS[order.status]}
                   </Badge>
                   <Badge
                     tone={
                       order.paymentStatus === "PAID" ? "success" : "warning"
                     }
                   >
-                    {order.paymentStatus}
+                    {PAYMENT_STATUS_LABELS[order.paymentStatus]}
                   </Badge>
                 </div>
               </div>
@@ -111,19 +120,29 @@ export function OrderMonitor() {
                 <p className="font-semibold">
                   {formatCurrency(order.totalAmount)}
                 </p>
-                <div className="w-52">
-                  <Select
-                    value=""
-                    onChange={(value) => value && changeStatus(order, value)}
-                    options={[
-                      { value: "", label: "Chuyển trạng thái..." },
-                      ...statuses.map((status) => ({
-                        value: status,
-                        label: status,
-                      })),
-                    ]}
-                  />
-                </div>
+                {/* Chỉ liệt kê bước chuyển hợp lệ: từ SHIPPING trở đi không còn tuỳ chọn huỷ. */}
+                {ALLOWED_NEXT_STATUSES[order.status].length > 0 ? (
+                  <div className="w-56">
+                    <Select
+                      value=""
+                      onChange={(value) => value && changeStatus(order, value)}
+                      options={[
+                        { value: "", label: "Chuyển trạng thái..." },
+                        ...ALLOWED_NEXT_STATUSES[order.status].map(
+                          (action) => ({
+                            value: action.status,
+                            label: action.label,
+                          }),
+                        ),
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500">
+                    {cancelBlockedReason(order.status) ??
+                      "Đơn đã kết thúc, không còn bước xử lý."}
+                  </span>
+                )}
               </div>
             </div>
           ))}
