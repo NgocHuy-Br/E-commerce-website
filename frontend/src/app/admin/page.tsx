@@ -10,7 +10,8 @@ import { VoucherManager } from "../components/admin/VoucherManager";
 import { Card, PageHeader, RequireLogin } from "../components/ui";
 import { useSession } from "../lib/session";
 
-type AdminTab = "dashboard" | "accounts" | "stores" | "catalog" | "orders" | "vouchers";
+type AdminTab =
+  "dashboard" | "accounts" | "stores" | "catalog" | "orders" | "vouchers";
 
 const tabs: { key: AdminTab; label: string }[] = [
   { key: "dashboard", label: "Tổng quan" },
@@ -29,7 +30,10 @@ export default function AdminPage() {
     return (
       <>
         <PageHeader title="Quản trị nền tảng" back={false} />
-        <RequireLogin next="/admin" message="Đăng nhập bằng tài khoản quản trị viên." />
+        <RequireLogin
+          next="/admin"
+          message="Đăng nhập bằng tài khoản quản trị viên."
+        />
       </>
     );
   }
@@ -39,7 +43,9 @@ export default function AdminPage() {
       <>
         <PageHeader title="Quản trị nền tảng" back={false} />
         <Card>
-          <p className="text-sm text-slate-600">Tài khoản hiện tại không có quyền ADMIN.</p>
+          <p className="text-sm text-slate-600">
+            Tài khoản hiện tại không có quyền ADMIN.
+          </p>
         </Card>
       </>
     );

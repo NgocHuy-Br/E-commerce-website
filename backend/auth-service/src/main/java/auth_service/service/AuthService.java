@@ -11,6 +11,7 @@ import auth_service.entity.AccountStatus;
 import auth_service.entity.Role;
 import auth_service.repository.AccountRepository;
 import auth_service.security.JwtService;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.List;
 import java.util.Set;
@@ -95,10 +96,23 @@ public class AuthService {
     @Transactional
     public AccountResponse updateRoles(Long accountId, Set<Role> roles) {
         Account account = findAccount(accountId);
-        roles.forEach(account::addRole);
-        account.getRoles().stream().filter(role -> role != Role.BUYER && !roles.contains(role))
-                .forEach(account::removeRole);
+        account.replaceRoles(normalizeRoles(roles));
         return toAccountResponse(account);
+    }
+
+    /**
+     * Quản trị viên là tài khoản nội bộ nên không kiêm mua hàng hay bán hàng;
+     * tài khoản khách thì luôn có quyền BUYER làm nền.
+     */
+    private Set<Role> normalizeRoles(Set<Role> roles) {
+        if (roles.contains(Role.ADMIN)) {
+            return EnumSet.of(Role.ADMIN);
+        }
+        EnumSet<Role> normalized = EnumSet.of(Role.BUYER);
+        if (roles.contains(Role.SELLER)) {
+            normalized.add(Role.SELLER);
+        }
+        return normalized;
     }
 
     @Transactional
@@ -111,6 +125,10 @@ public class AuthService {
     @Transactional
     public AccountResponse grantSellerRole(Long accountId) {
         Account account = findAccount(accountId);
+        if (account.isAdmin()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tài khoản quản trị viên không thể trở thành người bán");
+        }
         account.addRole(Role.SELLER);
         return toAccountResponse(account);
     }

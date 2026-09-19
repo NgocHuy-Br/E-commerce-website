@@ -267,7 +267,9 @@ export function PageHeader({
           </div>
         )}
         <h1 className="text-xl font-semibold">{title}</h1>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+        {description && (
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        )}
       </div>
       {action}
     </div>
@@ -275,15 +277,44 @@ export function PageHeader({
 }
 
 /** Nhắc đăng nhập cho các trang cần quyền. */
-export function RequireLogin({ next, message }: { next: string; message?: string }) {
+export function RequireLogin({
+  next,
+  message,
+}: {
+  next: string;
+  message?: string;
+}) {
   return (
     <Card>
-      <p className="text-sm text-slate-600">{message ?? "Bạn cần đăng nhập để xem nội dung này."}</p>
+      <p className="text-sm text-slate-600">
+        {message ?? "Bạn cần đăng nhập để xem nội dung này."}
+      </p>
       <Link
         href={`/login?next=${encodeURIComponent(next)}`}
         className="mt-3 inline-block bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800"
       >
         Đăng nhập
+      </Link>
+    </Card>
+  );
+}
+
+/** Chặn tài khoản quản trị dùng các chức năng mua/bán của khách. */
+export function AdminNotAllowed({ feature }: { feature: string }) {
+  return (
+    <Card>
+      <p className="text-sm text-slate-700">
+        Tài khoản quản trị viên là tài khoản nội bộ nên không sử dụng {feature}.
+      </p>
+      <p className="mt-2 text-sm text-slate-500">
+        Nếu bạn muốn mua hàng hoặc mở cửa hàng, hãy dùng một tài khoản khách
+        riêng.
+      </p>
+      <Link
+        href="/admin"
+        className="mt-3 inline-block bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800"
+      >
+        Về khu quản trị
       </Link>
     </Card>
   );

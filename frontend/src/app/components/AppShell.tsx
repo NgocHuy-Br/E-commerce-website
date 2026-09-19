@@ -38,9 +38,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex min-h-screen flex-col bg-stone-50 text-slate-900">
           <Header />
           <ToastBanner />
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+            {children}
+          </main>
           <footer className="border-t border-stone-200 bg-white py-5 text-center text-xs text-slate-400">
-            Nhóm 14 · Thực tập · Nền tảng TMĐT microservices (Spring Boot + Next.js)
+            Nhóm 14 · Thực tập · Nền tảng TMĐT microservices (Spring Boot +
+            Next.js)
           </footer>
         </div>
       </CartProvider>

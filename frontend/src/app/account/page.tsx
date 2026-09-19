@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { ProfilePanel } from "../components/buyer/ProfilePanel";
-import { Badge, Button, Card, Field, PageHeader, RequireLogin, TextInput } from "../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  PageHeader,
+  RequireLogin,
+  TextInput,
+} from "../components/ui";
 import { api, errorMessage } from "../lib/api";
 import { useSession } from "../lib/session";
 import { useNotify } from "../lib/toast";
@@ -32,7 +40,10 @@ export default function AccountPage() {
     return (
       <>
         <PageHeader title="Tài khoản" />
-        <RequireLogin next="/account" message="Đăng nhập để quản lý tài khoản của bạn." />
+        <RequireLogin
+          next="/account"
+          message="Đăng nhập để quản lý tài khoản của bạn."
+        />
       </>
     );
   }
@@ -47,7 +58,13 @@ export default function AccountPage() {
             {session.roles.map((role) => (
               <Badge
                 key={role}
-                tone={role === "ADMIN" ? "danger" : role === "SELLER" ? "info" : "success"}
+                tone={
+                  role === "ADMIN"
+                    ? "danger"
+                    : role === "SELLER"
+                      ? "info"
+                      : "success"
+                }
               >
                 {role}
               </Badge>
@@ -62,10 +79,18 @@ export default function AccountPage() {
         <Card title="Đổi mật khẩu">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Mật khẩu hiện tại">
-              <TextInput type="password" value={currentPassword} onChange={setCurrentPassword} />
+              <TextInput
+                type="password"
+                value={currentPassword}
+                onChange={setCurrentPassword}
+              />
             </Field>
             <Field label="Mật khẩu mới">
-              <TextInput type="password" value={newPassword} onChange={setNewPassword} />
+              <TextInput
+                type="password"
+                value={newPassword}
+                onChange={setNewPassword}
+              />
             </Field>
           </div>
           <Button className="mt-4" onClick={changePassword}>

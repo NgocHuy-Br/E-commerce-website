@@ -5,7 +5,11 @@ import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 import { useLoadEffect } from "../../lib/hooks";
-import { PAYMENT_METHODS, REFUND_NOTICE, paymentMethodLabel } from "../../lib/payment";
+import {
+  PAYMENT_METHODS,
+  REFUND_NOTICE,
+  paymentMethodLabel,
+} from "../../lib/payment";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import type { Order, OrderItem, PaymentMethod } from "../../lib/types";
@@ -35,7 +39,10 @@ export function MyOrders() {
   const { token } = useSession();
   const notify = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [reviewing, setReviewing] = useState<{ order: Order; item: OrderItem } | null>(null);
+  const [reviewing, setReviewing] = useState<{
+    order: Order;
+    item: OrderItem;
+  } | null>(null);
   const [paying, setPaying] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
 
@@ -65,13 +72,16 @@ export function MyOrders() {
         <div className="space-y-4">
           {orders.map((order) => {
             const canCancel = CANCELLABLE_STATUSES.includes(order.status);
-            const canPay = order.paymentStatus === "PENDING" && order.status !== "CANCELLED";
+            const canPay =
+              order.paymentStatus === "PENDING" && order.status !== "CANCELLED";
             return (
               <div key={order.id} className="border border-stone-200 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold">Đơn #{order.id}</p>
-                    <p className="text-xs text-slate-500">{formatDateTime(order.createdAt)}</p>
+                    <p className="text-xs text-slate-500">
+                      {formatDateTime(order.createdAt)}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge
@@ -94,7 +104,8 @@ export function MyOrders() {
                             : "warning"
                       }
                     >
-                      {paymentLabels[order.paymentStatus] ?? order.paymentStatus}
+                      {paymentLabels[order.paymentStatus] ??
+                        order.paymentStatus}
                     </Badge>
                   </div>
                 </div>
@@ -105,7 +116,10 @@ export function MyOrders() {
                       key={item.productId}
                       className="flex flex-wrap items-center justify-between gap-2"
                     >
-                      <Link href={`/products/${item.productId}`} className="hover:text-teal-800">
+                      <Link
+                        href={`/products/${item.productId}`}
+                        className="hover:text-teal-800"
+                      >
                         {item.productName} × {item.quantity}
                       </Link>
                       <span className="flex items-center gap-3">
@@ -129,22 +143,34 @@ export function MyOrders() {
                   ))}
                 </ul>
 
-                <p className="mt-3 text-xs text-slate-500">Giao tới: {order.shippingAddress}</p>
+                <p className="mt-3 text-xs text-slate-500">
+                  Giao tới: {order.shippingAddress}
+                </p>
                 <p className="text-xs text-slate-500">
                   Phương thức: {paymentMethodLabel(order.paymentMethod)}
                 </p>
                 {order.voucherCode && (
                   <p className="text-xs text-teal-800">
-                    Mã {order.voucherCode} · giảm {formatCurrency(order.discountAmount)}
+                    Mã {order.voucherCode} · giảm{" "}
+                    {formatCurrency(order.discountAmount)}
                   </p>
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold">Tổng: {formatCurrency(order.totalAmount)}</p>
+                  <p className="font-semibold">
+                    Tổng: {formatCurrency(order.totalAmount)}
+                  </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {canPay && <Button onClick={() => setPaying(order)}>Thanh toán</Button>}
+                    {canPay && (
+                      <Button onClick={() => setPaying(order)}>
+                        Thanh toán
+                      </Button>
+                    )}
                     {canCancel ? (
-                      <Button variant="danger" onClick={() => setCancelling(order)}>
+                      <Button
+                        variant="danger"
+                        onClick={() => setCancelling(order)}
+                      >
                         Huỷ đơn
                       </Button>
                     ) : (
@@ -215,7 +241,9 @@ function PaymentModal({
   onDone: () => Promise<void>;
 }) {
   const notify = useNotify();
-  const [method, setMethod] = useState<PaymentMethod>(order.paymentMethod ?? "COD");
+  const [method, setMethod] = useState<PaymentMethod>(
+    order.paymentMethod ?? "COD",
+  );
   const [sending, setSending] = useState(false);
 
   const submit = async () => {
@@ -243,7 +271,8 @@ function PaymentModal({
   return (
     <Modal title={`Thanh toán đơn #${order.id}`} onClose={onClose}>
       <p className="text-sm text-slate-600">
-        Số tiền cần thanh toán: <b className="text-teal-800">{formatCurrency(order.totalAmount)}</b>
+        Số tiền cần thanh toán:{" "}
+        <b className="text-teal-800">{formatCurrency(order.totalAmount)}</b>
       </p>
 
       <fieldset className="mt-4 space-y-2">
@@ -269,7 +298,9 @@ function PaymentModal({
             />
             <span>
               <span className="block text-sm font-medium">{item.label}</span>
-              <span className="block text-xs text-slate-500">{item.description}</span>
+              <span className="block text-xs text-slate-500">
+                {item.description}
+              </span>
             </span>
           </label>
         ))}
@@ -306,9 +337,14 @@ function CancelOrderModal({
   const submit = async () => {
     setSending(true);
     try {
-      await api<Order>(`/api/orders/${order.id}/cancel`, { method: "PUT", token });
+      await api<Order>(`/api/orders/${order.id}/cancel`, {
+        method: "PUT",
+        token,
+      });
       notify(
-        alreadyPaid ? `Đã huỷ đơn #${order.id}. ${REFUND_NOTICE}` : `Đã huỷ đơn #${order.id}.`,
+        alreadyPaid
+          ? `Đã huỷ đơn #${order.id}. ${REFUND_NOTICE}`
+          : `Đã huỷ đơn #${order.id}.`,
         "success",
       );
       await onDone();
@@ -322,18 +358,21 @@ function CancelOrderModal({
   return (
     <Modal title={`Huỷ đơn #${order.id}?`} onClose={onClose}>
       <p className="text-sm text-slate-700">
-        Bạn có chắc chắn muốn huỷ đơn hàng này? Hành động này không thể hoàn tác.
+        Bạn có chắc chắn muốn huỷ đơn hàng này? Hành động này không thể hoàn
+        tác.
       </p>
 
       <ul className="mt-3 space-y-1 text-sm text-slate-600">
         <li>
-          Trạng thái hiện tại: <b>{statusLabels[order.status] ?? order.status}</b>
+          Trạng thái hiện tại:{" "}
+          <b>{statusLabels[order.status] ?? order.status}</b>
         </li>
         <li>
           Giá trị đơn: <b>{formatCurrency(order.totalAmount)}</b>
         </li>
         <li>
-          Thanh toán: <b>{paymentLabels[order.paymentStatus] ?? order.paymentStatus}</b> qua{" "}
+          Thanh toán:{" "}
+          <b>{paymentLabels[order.paymentStatus] ?? order.paymentStatus}</b> qua{" "}
           {paymentMethodLabel(order.paymentMethod)}
         </li>
       </ul>
@@ -394,7 +433,11 @@ function ReviewModal({
           <Stars rating={rating} onSelect={setRating} />
         </Field>
         <Field label="Nhận xét">
-          <TextArea value={comment} onChange={setComment} placeholder="Sản phẩm dùng tốt..." />
+          <TextArea
+            value={comment}
+            onChange={setComment}
+            placeholder="Sản phẩm dùng tốt..."
+          />
         </Field>
         <Button onClick={submit}>Gửi đánh giá</Button>
       </div>

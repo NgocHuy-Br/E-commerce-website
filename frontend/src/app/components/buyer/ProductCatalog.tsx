@@ -14,7 +14,7 @@ import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
 
 /** Tìm kiếm hàng hoá ở trang chủ: từ khoá, danh mục, khoảng giá, sắp xếp. */
 export function ProductCatalog() {
-  const { token } = useSession();
+  const { token, isAdmin } = useSession();
   const notify = useNotify();
   const { addItem } = useCart();
 
@@ -35,7 +35,11 @@ export function ProductCatalog() {
     const summaries = await api<ReviewSummary[]>(
       `/api/orders/reviews/summary?productIds=${items.map((item) => item.id).join(",")}`,
     ).catch(() => [] as ReviewSummary[]);
-    setRatings(Object.fromEntries(summaries.map((summary) => [summary.productId, summary])));
+    setRatings(
+      Object.fromEntries(
+        summaries.map((summary) => [summary.productId, summary]),
+      ),
+    );
   }, []);
 
   const loadInitial = useCallback(async () => {
@@ -74,7 +78,12 @@ export function ProductCatalog() {
       <Card title="Tìm kiếm hàng hoá">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Từ khoá">
-            <TextInput value={keyword} onChange={setKeyword} placeholder="Tên sản phẩm" onEnter={search} />
+            <TextInput
+              value={keyword}
+              onChange={setKeyword}
+              placeholder="Tên sản phẩm"
+              onEnter={search}
+            />
           </Field>
           <Field label="Danh mục">
             <Select
@@ -102,13 +111,28 @@ export function ProductCatalog() {
             />
           </Field>
           <Field label="Giá từ">
-            <TextInput type="number" value={minPrice} onChange={setMinPrice} placeholder="0" />
+            <TextInput
+              type="number"
+              value={minPrice}
+              onChange={setMinPrice}
+              placeholder="0"
+            />
           </Field>
           <Field label="Giá đến">
-            <TextInput type="number" value={maxPrice} onChange={setMaxPrice} placeholder="1000000" />
+            <TextInput
+              type="number"
+              value={maxPrice}
+              onChange={setMaxPrice}
+              placeholder="1000000"
+            />
           </Field>
           <div className="flex items-end">
-            <Button variant="accent" className="w-full" onClick={search} disabled={loading}>
+            <Button
+              variant="accent"
+              className="w-full"
+              onClick={search}
+              disabled={loading}
+            >
               {loading ? "Đang tìm..." : "Tìm kiếm"}
             </Button>
           </div>
@@ -144,17 +168,27 @@ export function ProductCatalog() {
                   )}
                 </Link>
                 <div className="mt-3 flex items-start justify-between gap-2">
-                  <Link href={`/products/${product.id}`} className="font-semibold hover:text-teal-800">
+                  <Link
+                    href={`/products/${product.id}`}
+                    className="font-semibold hover:text-teal-800"
+                  >
                     {product.name}
                   </Link>
-                  {product.discountPercent > 0 && <Badge tone="danger">-{product.discountPercent}%</Badge>}
+                  {product.discountPercent > 0 && (
+                    <Badge tone="danger">-{product.discountPercent}%</Badge>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">{product.categoryName}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {product.categoryName}
+                </p>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-600">
                   {product.description || "Chưa có mô tả"}
                 </p>
                 <div className="mt-2">
-                  <Stars rating={rating?.averageRating ?? 0} count={rating?.reviewCount ?? 0} />
+                  <Stars
+                    rating={rating?.averageRating ?? 0}
+                    count={rating?.reviewCount ?? 0}
+                  />
                 </div>
                 <p className="mt-2 font-semibold text-teal-800">
                   {formatCurrency(product.effectivePrice)}
@@ -164,24 +198,38 @@ export function ProductCatalog() {
                     </span>
                   )}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">Còn {product.stockQuantity} sản phẩm</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Còn {product.stockQuantity} sản phẩm
+                </p>
                 <div className="mt-3 flex gap-2">
-                  <Button
-                    className="flex-1"
-                    disabled={product.stockQuantity < 1}
-                    onClick={() => addItem(product, 1)}
-                  >
-                    Thêm vào giỏ
-                  </Button>
+                  {/* Quản trị viên chỉ xem, không mua hàng. */}
+                  {!isAdmin && (
+                    <Button
+                      className="flex-1"
+                      disabled={product.stockQuantity < 1}
+                      onClick={() => addItem(product, 1)}
+                    >
+                      Thêm vào giỏ
+                    </Button>
+                  )}
                   <Link
                     href={`/products/${product.id}`}
-                    className="border border-stone-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-stone-100"
+                    className={`border border-stone-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-stone-100 ${
+                      isAdmin ? "flex-1" : ""
+                    }`}
                   >
                     Chi tiết
                   </Link>
                 </div>
                 {!token && (
-                  <p className="mt-2 text-xs text-slate-400">Cần đăng nhập để mua hàng.</p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Cần đăng nhập để mua hàng.
+                  </p>
+                )}
+                {isAdmin && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Tài khoản quản trị chỉ xem, không mua hàng.
+                  </p>
                 )}
               </article>
             );

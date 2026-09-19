@@ -16,7 +16,8 @@ export const PAYMENT_METHODS: {
   {
     value: "BANK_TRANSFER",
     label: "Chuyển khoản ngân hàng",
-    description: "Chuyển tới số tài khoản của sàn, hệ thống ghi nhận đã thanh toán.",
+    description:
+      "Chuyển tới số tài khoản của sàn, hệ thống ghi nhận đã thanh toán.",
     payOnDelivery: false,
   },
   {
@@ -33,8 +34,13 @@ export const PAYMENT_METHODS: {
   },
 ];
 
-export function paymentMethodLabel(method: PaymentMethod | null | undefined): string {
-  return PAYMENT_METHODS.find((item) => item.value === method)?.label ?? String(method ?? "-");
+export function paymentMethodLabel(
+  method: PaymentMethod | null | undefined,
+): string {
+  return (
+    PAYMENT_METHODS.find((item) => item.value === method)?.label ??
+    String(method ?? "-")
+  );
 }
 
 /** Câu thông báo hoàn tiền khi huỷ đơn đã thanh toán. */

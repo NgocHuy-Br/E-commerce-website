@@ -30,6 +30,7 @@ public class OrderController {
     }
 
     @GetMapping("/mine")
+    @PreAuthorize("hasRole('BUYER')")
     public List<OrderResponse> mine(@AuthenticationPrincipal AuthPrincipal principal) {
         return orderService.getMine(principal.userId());
     }

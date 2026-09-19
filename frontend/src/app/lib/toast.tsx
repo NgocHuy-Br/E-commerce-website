@@ -60,9 +60,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [clearTimer],
   );
 
-  const value = useMemo(() => ({ toast, notify, dismiss }), [toast, notify, dismiss]);
+  const value = useMemo(
+    () => ({ toast, notify, dismiss }),
+    [toast, notify, dismiss],
+  );
 
-  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
+  return (
+    <ToastContext.Provider value={value}>{children}</ToastContext.Provider>
+  );
 }
 
 export function useToast(): ToastContextValue {

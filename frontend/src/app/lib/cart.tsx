@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { api, errorMessage } from "./api";
 import { useLoadEffect } from "./hooks";
 import { useSession } from "./session";
@@ -22,14 +29,19 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 /** Giỏ hàng dùng chung cho header, trang chủ, trang chi tiết và trang giỏ hàng. */
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { token } = useSession();
+  const { token, isAdmin } = useSession();
   const notify = useNotify();
   const [items, setItems] = useState<CartItem[]>([]);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
-    setItems(await api<CartItem[]>("/api/orders/cart", { token }).catch(() => [] as CartItem[]));
-  }, [token]);
+    // Quản trị viên không có giỏ hàng nên bỏ qua.
+    if (!token || isAdmin) return;
+    setItems(
+      await api<CartItem[]>("/api/orders/cart", { token }).catch(
+        () => [] as CartItem[],
+      ),
+    );
+  }, [token, isAdmin]);
 
   useLoadEffect(refresh);
 
@@ -37,6 +49,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     async (product: Product, quantity: number) => {
       if (!token) {
         notify("Bạn cần đăng nhập để thêm vào giỏ hàng.", "error");
+        return;
+      }
+      if (isAdmin) {
+        notify("Tài khoản quản trị viên không thực hiện mua hàng.", "error");
         return;
       }
       try {
@@ -52,17 +68,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
         notify(errorMessage(error, "Không thể thêm vào giỏ hàng."), "error");
       }
     },
-    [token, notify],
+    [token, isAdmin, notify],
   );
 
   const setQuantity = useCallback(
     async (productId: number, quantity: number) => {
       try {
         setItems(
-          await api<CartItem[]>(`/api/orders/cart/items/${productId}?quantity=${quantity}`, {
-            method: "PUT",
-            token,
-          }),
+          await api<CartItem[]>(
+            `/api/orders/cart/items/${productId}?quantity=${quantity}`,
+            {
+              method: "PUT",
+              token,
+            },
+          ),
         );
       } catch (error) {
         notify(errorMessage(error, "Không thể cập nhật giỏ hàng."), "error");
@@ -75,7 +94,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     async (productId: number) => {
       try {
         setItems(
-          await api<CartItem[]>(`/api/orders/cart/items/${productId}`, { method: "DELETE", token }),
+          await api<CartItem[]>(`/api/orders/cart/items/${productId}`, {
+            method: "DELETE",
+            token,
+          }),
         );
       } catch (error) {
         notify(errorMessage(error, "Không thể xoá sản phẩm."), "error");
@@ -88,18 +110,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     // Đăng xuất thì không hiển thị giỏ của phiên trước.
-    const visibleItems = token ? items : [];
+    const visibleItems = token && !isAdmin ? items : [];
     return {
       items: visibleItems,
       count: visibleItems.reduce((total, item) => total + item.quantity, 0),
-      subtotal: visibleItems.reduce((total, item) => total + item.unitPrice * item.quantity, 0),
+      subtotal: visibleItems.reduce(
+        (total, item) => total + item.unitPrice * item.quantity,
+        0,
+      ),
       addItem,
       setQuantity,
       removeItem,
       clear,
       refresh,
     };
-  }, [token, items, addItem, setQuantity, removeItem, clear, refresh]);
+  }, [token, isAdmin, items, addItem, setQuantity, removeItem, clear, refresh]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

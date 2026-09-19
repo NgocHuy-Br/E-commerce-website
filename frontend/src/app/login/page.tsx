@@ -41,7 +41,12 @@ function LoginForm() {
         `${mode === "login" ? "Đăng nhập" : "Đăng ký"} thành công: ${result.email}`,
         "success",
       );
-      router.push(nextPath.startsWith("/login") ? "/" : nextPath);
+      // Quản trị viên vào thẳng khu quản trị, khách về trang trước đó.
+      const isAdmin = result.roles.includes("ADMIN");
+      const fallback = isAdmin ? "/admin" : "/";
+      router.push(
+        nextPath.startsWith("/login") || isAdmin ? fallback : nextPath,
+      );
     } catch (error) {
       notify(errorMessage(error, "Không thể xác thực tài khoản."), "error");
     } finally {
@@ -61,7 +66,10 @@ function LoginForm() {
       </div>
       <Card>
         <div className="mb-5 flex gap-2 border-b border-stone-200 pb-3">
-          <Button variant={mode === "login" ? "primary" : "ghost"} onClick={() => setMode("login")}>
+          <Button
+            variant={mode === "login" ? "primary" : "ghost"}
+            onClick={() => setMode("login")}
+          >
             Đăng nhập
           </Button>
           <Button
@@ -93,7 +101,11 @@ function LoginForm() {
         </div>
 
         <Button className="mt-5 w-full" onClick={submit} disabled={loading}>
-          {loading ? "Đang xử lý..." : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+          {loading
+            ? "Đang xử lý..."
+            : mode === "login"
+              ? "Đăng nhập"
+              : "Tạo tài khoản"}
         </Button>
 
         <p className="mt-4 text-center text-sm text-slate-500">
@@ -108,8 +120,8 @@ function LoginForm() {
         </p>
 
         <p className="mt-4 text-center text-xs text-slate-400">
-          Tài khoản mới mặc định là người mua. Muốn bán hàng, hãy mở cửa hàng ở mục Người bán và chờ
-          quản trị viên duyệt.
+          Tài khoản mới mặc định là người mua. Muốn bán hàng, hãy mở cửa hàng ở
+          mục Người bán và chờ quản trị viên duyệt.
         </p>
       </Card>
 

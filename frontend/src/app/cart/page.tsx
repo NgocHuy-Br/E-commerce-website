@@ -3,7 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { Badge, Button, Card, Empty, Field, PageHeader, RequireLogin, Select, TextInput } from "../components/ui";
+import {
+  AdminNotAllowed,
+  Badge,
+  Button,
+  Card,
+  Empty,
+  Field,
+  PageHeader,
+  RequireLogin,
+  Select,
+  TextInput,
+} from "../components/ui";
 import { api, errorMessage } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { formatCurrency } from "../lib/format";
@@ -14,7 +25,7 @@ import { useNotify } from "../lib/toast";
 import type { Address, Order, PaymentMethod, Voucher } from "../lib/types";
 
 export default function CartPage() {
-  const { token } = useSession();
+  const { token, isAdmin } = useSession();
   const notify = useNotify();
   const router = useRouter();
   const { items, subtotal, setQuantity, removeItem, clear } = useCart();
@@ -29,9 +40,13 @@ export default function CartPage() {
 
   const load = useCallback(async () => {
     const [voucherData, addressData] = await Promise.all([
-      api<Voucher[]>("/api/orders/vouchers/active").catch(() => [] as Voucher[]),
+      api<Voucher[]>("/api/orders/vouchers/active").catch(
+        () => [] as Voucher[],
+      ),
       token
-        ? api<Address[]>("/api/users/me/addresses", { token }).catch(() => [] as Address[])
+        ? api<Address[]>("/api/users/me/addresses", { token }).catch(
+            () => [] as Address[],
+          )
         : Promise.resolve([] as Address[]),
     ]);
     setVouchers(voucherData);
@@ -44,13 +59,27 @@ export default function CartPage() {
     return (
       <>
         <PageHeader title="Giỏ hàng" />
-        <RequireLogin next="/cart" message="Đăng nhập để xem giỏ hàng của bạn." />
+        <RequireLogin
+          next="/cart"
+          message="Đăng nhập để xem giỏ hàng của bạn."
+        />
       </>
     );
   }
 
-  const preferredAddress = addresses.find((address) => address.defaultAddress) ?? addresses[0];
-  const addressId = chosenAddressId ?? (preferredAddress ? String(preferredAddress.id) : "");
+  if (isAdmin) {
+    return (
+      <>
+        <PageHeader title="Giỏ hàng" />
+        <AdminNotAllowed feature="giỏ hàng và mua hàng" />
+      </>
+    );
+  }
+
+  const preferredAddress =
+    addresses.find((address) => address.defaultAddress) ?? addresses[0];
+  const addressId =
+    chosenAddressId ?? (preferredAddress ? String(preferredAddress.id) : "");
   const selectedVoucher = vouchers.find(
     (voucher) => voucher.code === voucherCode.trim().toUpperCase(),
   );
@@ -60,7 +89,9 @@ export default function CartPage() {
       : 0;
 
   const shippingAddress = () => {
-    const chosen = addresses.find((address) => String(address.id) === addressId);
+    const chosen = addresses.find(
+      (address) => String(address.id) === addressId,
+    );
     if (chosen) {
       return `${chosen.recipientName} - ${chosen.phoneNumber} - ${chosen.detail}, ${chosen.ward}, ${chosen.district}, ${chosen.city}`;
     }
@@ -78,7 +109,11 @@ export default function CartPage() {
       const order = await api<Order>("/api/orders/checkout", {
         method: "POST",
         token,
-        body: { shippingAddress: address, paymentMethod, voucherCode: voucherCode.trim() || null },
+        body: {
+          shippingAddress: address,
+          paymentMethod,
+          voucherCode: voucherCode.trim() || null,
+        },
       });
       clear();
       notify(`Đặt hàng thành công. Mã đơn #${order.id}`, "success");
@@ -92,7 +127,10 @@ export default function CartPage() {
 
   return (
     <>
-      <PageHeader title="Giỏ hàng" description={`${items.length} sản phẩm trong giỏ`} />
+      <PageHeader
+        title="Giỏ hàng"
+        description={`${items.length} sản phẩm trong giỏ`}
+      />
 
       {items.length === 0 ? (
         <Card>
@@ -157,16 +195,22 @@ export default function CartPage() {
                         <Button
                           variant="ghost"
                           className="px-2 py-1"
-                          onClick={() => setQuantity(item.productId, item.quantity - 1)}
+                          onClick={() =>
+                            setQuantity(item.productId, item.quantity - 1)
+                          }
                         >
                           -
                         </Button>
-                        <span className="w-8 text-center text-sm">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm">
+                          {item.quantity}
+                        </span>
                         <Button
                           variant="ghost"
                           className="px-2 py-1"
                           disabled={item.quantity >= item.stockQuantity}
-                          onClick={() => setQuantity(item.productId, item.quantity + 1)}
+                          onClick={() =>
+                            setQuantity(item.productId, item.quantity + 1)
+                          }
                         >
                           +
                         </Button>
@@ -217,7 +261,10 @@ export default function CartPage() {
                 )}
                 <p className="text-xs text-slate-500">
                   Quản lý sổ địa chỉ tại{" "}
-                  <Link href="/account" className="text-teal-800 hover:underline">
+                  <Link
+                    href="/account"
+                    className="text-teal-800 hover:underline"
+                  >
                     trang tài khoản
                   </Link>
                   .
@@ -225,7 +272,9 @@ export default function CartPage() {
                 <Field label="Phương thức thanh toán">
                   <Select
                     value={paymentMethod}
-                    onChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                    onChange={(value) =>
+                      setPaymentMethod(value as PaymentMethod)
+                    }
                     options={PAYMENT_METHODS.map((method) => ({
                       value: method.value,
                       label: method.label,
@@ -233,7 +282,11 @@ export default function CartPage() {
                   />
                 </Field>
                 <Field label="Mã giảm giá">
-                  <TextInput value={voucherCode} onChange={setVoucherCode} placeholder="VD: NHOM14" />
+                  <TextInput
+                    value={voucherCode}
+                    onChange={setVoucherCode}
+                    placeholder="VD: NHOM14"
+                  />
                 </Field>
                 {vouchers.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -273,11 +326,16 @@ export default function CartPage() {
                   <span>{formatCurrency(subtotal - estimatedDiscount)}</span>
                 </p>
               </div>
-              <Button className="mt-4 w-full" onClick={checkout} disabled={placing}>
+              <Button
+                className="mt-4 w-full"
+                onClick={checkout}
+                disabled={placing}
+              >
                 {placing ? "Đang đặt hàng..." : "Đặt hàng"}
               </Button>
               <p className="mt-3 text-center text-xs text-slate-400">
-                Giá chốt đơn được tính lại theo khuyến mãi tại thời điểm đặt hàng.
+                Giá chốt đơn được tính lại theo khuyến mãi tại thời điểm đặt
+                hàng.
               </p>
             </Card>
           </div>

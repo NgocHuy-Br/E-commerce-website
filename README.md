@@ -80,6 +80,7 @@ Gọi nội bộ giữa các service:
 - Chuyển trạng thái đơn hàng được kiểm tra theo máy trạng thái, không cho nhảy bậc hay sửa đơn đã huỷ/đã giao.
 - Đơn đang giao (`SHIPPING`) hoặc đã giao (`DELIVERED`) thì người mua không huỷ được; đơn đã thanh toán khi huỷ sẽ chuyển sang `REFUNDED`.
 - Mỗi chủ tài khoản chỉ mở được một cửa hàng; chỉ cửa hàng `ACTIVE` mới được đăng bán.
+- Quản trị viên không truy cập được giỏ hàng, đặt hàng, đơn hàng của tôi, mở cửa hàng hay đăng bán (trả 403).
 
 ## 3. Chạy dự án
 

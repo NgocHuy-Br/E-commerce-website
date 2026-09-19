@@ -73,14 +73,18 @@ export function useSession() {
     [session],
   );
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const roles = session?.roles ?? [];
+    return {
       session,
       token: session?.accessToken ?? null,
       signIn,
       signOut,
       hasRole,
-    }),
-    [session, signIn, signOut, hasRole],
-  );
+      /** Quản trị viên là tài khoản nội bộ: không mua hàng, không bán hàng. */
+      isAdmin: roles.includes("ADMIN"),
+      /** Tài khoản khách: được mua hàng và mở cửa hàng. */
+      isCustomer: roles.includes("BUYER"),
+    };
+  }, [session, signIn, signOut, hasRole]);
 }

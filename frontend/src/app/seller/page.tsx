@@ -4,7 +4,12 @@ import { useCallback, useState } from "react";
 import { ProductManager } from "../components/seller/ProductManager";
 import { SellerOrders } from "../components/seller/SellerOrders";
 import { StorePanel } from "../components/seller/StorePanel";
-import { Card, PageHeader, RequireLogin } from "../components/ui";
+import {
+  AdminNotAllowed,
+  Card,
+  PageHeader,
+  RequireLogin,
+} from "../components/ui";
 import { api } from "../lib/api";
 import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
@@ -19,7 +24,7 @@ const tabs: { key: SellerTab; label: string }[] = [
 ];
 
 export default function SellerPage() {
-  const { token, hasRole } = useSession();
+  const { token, hasRole, isAdmin } = useSession();
   const [tab, setTab] = useState<SellerTab>("store");
   const [store, setStore] = useState<Store | null>(null);
 
@@ -34,7 +39,19 @@ export default function SellerPage() {
     return (
       <>
         <PageHeader title="Kênh người bán" back={false} />
-        <RequireLogin next="/seller" message="Đăng nhập để mở cửa hàng và đăng bán." />
+        <RequireLogin
+          next="/seller"
+          message="Đăng nhập để mở cửa hàng và đăng bán."
+        />
+      </>
+    );
+  }
+
+  if (isAdmin) {
+    return (
+      <>
+        <PageHeader title="Kênh người bán" back={false} />
+        <AdminNotAllowed feature="chức năng bán hàng" />
       </>
     );
   }
@@ -65,7 +82,11 @@ export default function SellerPage() {
       </div>
 
       {tab === "store" && (
-        <StorePanel key={store?.id ?? "new-store"} store={store} onStoreChange={setStore} />
+        <StorePanel
+          key={store?.id ?? "new-store"}
+          store={store}
+          onStoreChange={setStore}
+        />
       )}
       {tab === "products" && <ProductManager store={store} />}
       {tab === "orders" &&
@@ -74,7 +95,8 @@ export default function SellerPage() {
         ) : (
           <Card>
             <p className="text-sm text-slate-500">
-              Bạn cần được cấp quyền SELLER (sau khi quản trị viên duyệt cửa hàng) để xem đơn hàng.
+              Bạn cần được cấp quyền SELLER (sau khi quản trị viên duyệt cửa
+              hàng) để xem đơn hàng.
             </p>
           </Card>
         ))}
