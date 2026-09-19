@@ -5,6 +5,7 @@ export type StoreStatus = "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
 export type OrderStatus =
   "PENDING" | "CONFIRMED" | "PACKING" | "SHIPPING" | "DELIVERED" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+export type PaymentMethod = "COD" | "BANK_TRANSFER" | "MOMO" | "CREDIT_CARD";
 
 export type AuthResponse = {
   accessToken: string;
@@ -131,7 +132,7 @@ export type Order = {
   discountAmount: number;
   voucherCode: string | null;
   shippingAddress: string;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
   createdAt: string;

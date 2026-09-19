@@ -18,8 +18,9 @@ public class CustomerOrder {
     private BigDecimal totalAmount;
     @Column(nullable = false, length = 500)
     private String shippingAddress;
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentStatus paymentStatus;
@@ -38,11 +39,12 @@ public class CustomerOrder {
     protected CustomerOrder() {
     }
 
-    public CustomerOrder(Long buyerId, String shippingAddress, String paymentMethod) {
+    public CustomerOrder(Long buyerId, String shippingAddress, PaymentMethod paymentMethod) {
         this.buyerId = buyerId;
         this.shippingAddress = shippingAddress;
         this.paymentMethod = paymentMethod;
-        this.paymentStatus = "COD".equalsIgnoreCase(paymentMethod) ? PaymentStatus.PENDING : PaymentStatus.PAID;
+        // Trả trước thì ghi nhận đã thanh toán ngay, COD thì chờ người mua trả tiền.
+        this.paymentStatus = paymentMethod.isPayOnDelivery() ? PaymentStatus.PENDING : PaymentStatus.PAID;
         this.status = OrderStatus.PENDING;
         this.createdAt = Instant.now();
         this.totalAmount = BigDecimal.ZERO;
@@ -76,8 +78,13 @@ public class CustomerOrder {
         return shippingAddress;
     }
 
-    public String getPaymentMethod() {
+    public PaymentMethod getPaymentMethod() {
         return paymentMethod;
+    }
+
+    /** Người mua có thể đổi phương thức khi bấm thanh toán đơn COD. */
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     public PaymentStatus getPaymentStatus() {

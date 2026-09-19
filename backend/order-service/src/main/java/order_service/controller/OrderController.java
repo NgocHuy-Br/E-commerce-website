@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import order_service.dto.CheckoutRequest;
 import order_service.dto.OrderResponse;
+import order_service.dto.PaymentRequest;
 import order_service.dto.PlatformOrderStatsResponse;
 import order_service.entity.OrderStatus;
 import order_service.security.AuthPrincipal;
@@ -60,10 +61,12 @@ public class OrderController {
         return orderService.updateStatus(orderId, status, principal, authorization);
     }
 
+    /** Thanh toán đơn hàng với phương thức người mua chọn. */
     @PutMapping("/{orderId}/pay")
     @PreAuthorize("hasRole('BUYER')")
-    public OrderResponse pay(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal) {
-        return orderService.pay(orderId, principal.userId());
+    public OrderResponse pay(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody PaymentRequest request) {
+        return orderService.pay(orderId, principal.userId(), request.paymentMethod());
     }
 
     /** Người mua huỷ đơn khi shop chưa giao. */

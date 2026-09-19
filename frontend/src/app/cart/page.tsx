@@ -7,10 +7,11 @@ import { Badge, Button, Card, Empty, Field, PageHeader, RequireLogin, Select, Te
 import { api, errorMessage } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { formatCurrency } from "../lib/format";
+import { PAYMENT_METHODS } from "../lib/payment";
 import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
 import { useNotify } from "../lib/toast";
-import type { Address, Order, Voucher } from "../lib/types";
+import type { Address, Order, PaymentMethod, Voucher } from "../lib/types";
 
 export default function CartPage() {
   const { token } = useSession();
@@ -22,7 +23,7 @@ export default function CartPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [chosenAddressId, setChosenAddressId] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const [voucherCode, setVoucherCode] = useState("");
   const [placing, setPlacing] = useState(false);
 
@@ -224,11 +225,11 @@ export default function CartPage() {
                 <Field label="Phương thức thanh toán">
                   <Select
                     value={paymentMethod}
-                    onChange={setPaymentMethod}
-                    options={[
-                      { value: "COD", label: "COD - thanh toán khi nhận hàng" },
-                      { value: "BANK_TRANSFER", label: "Chuyển khoản (ghi nhận đã trả)" },
-                    ]}
+                    onChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                    options={PAYMENT_METHODS.map((method) => ({
+                      value: method.value,
+                      label: method.label,
+                    }))}
                   />
                 </Field>
                 <Field label="Mã giảm giá">

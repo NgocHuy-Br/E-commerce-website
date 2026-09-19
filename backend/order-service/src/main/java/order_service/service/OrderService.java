@@ -15,6 +15,7 @@ import order_service.dto.PlatformOrderStatsResponse;
 import order_service.entity.CustomerOrder;
 import order_service.entity.OrderItem;
 import order_service.entity.OrderStatus;
+import order_service.entity.PaymentMethod;
 import order_service.entity.Review;
 import order_service.entity.PaymentStatus;
 import order_service.entity.Voucher;
@@ -145,22 +146,35 @@ public class OrderService {
         if (!order.getBuyerId().equals(buyerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Đơn hàng không thuộc về bạn");
         }
+        if (order.getStatus() == OrderStatus.DELIVERED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đã được giao nên không thể huỷ");
+        }
+        if (order.getStatus() == OrderStatus.SHIPPING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đang trên đường giao nên không thể huỷ");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được huỷ trước đó");
+        }
         changeStatus(order, OrderStatus.CANCELLED);
         return toResponse(order);
     }
 
+    /** Người mua chọn phương thức rồi thanh toán đơn đang chờ trả tiền. */
     @Transactional
-    public OrderResponse pay(Long orderId, Long buyerId) {
+    public OrderResponse pay(Long orderId, Long buyerId, PaymentMethod paymentMethod) {
         CustomerOrder order = findOrder(orderId);
         if (!order.getBuyerId().equals(buyerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Đơn hàng không thuộc về bạn");
         }
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã bị huỷ");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã bị huỷ, không thể thanh toán");
         }
         if (order.getPaymentStatus() != PaymentStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được thanh toán");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng này đã được thanh toán");
         }
+        order.setPaymentMethod(paymentMethod);
         order.setPaymentStatus(PaymentStatus.PAID);
         return toResponse(order);
     }

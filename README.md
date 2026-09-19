@@ -70,13 +70,15 @@ Gọi nội bộ giữa các service:
 - Xem chi tiết sản phẩm, khuyến mãi đang chạy và các đánh giá.
 - Giỏ hàng trên Redis: thêm, sửa số lượng, xoá; giá và tồn kho luôn lấy từ product-service.
 - Thanh toán: chọn địa chỉ đã lưu, chọn COD/chuyển khoản, áp mã giảm giá.
-- Theo dõi đơn, thanh toán đơn COD, huỷ đơn khi shop chưa giao (hàng được hoàn kho).
+- Theo dõi đơn; bấm thanh toán sẽ hiện popup chọn phương thức (COD, chuyển khoản, MoMo, thẻ), thanh toán xong nút thanh toán tự ẩn.
+- Huỷ đơn khi shop chưa giao: có popup xác nhận, báo trước việc hoàn tiền về tài khoản ngân hàng trong 1-3 ngày làm việc, hàng được hoàn kho.
 - Đánh sao 1–5 và nhận xét sau khi đơn ở trạng thái `DELIVERED`, mỗi sản phẩm một lần trên mỗi đơn.
 
 ### Quy tắc nghiệp vụ đáng chú ý
 - Giá chốt đơn là giá sau khuyến mãi đang hiệu lực, do product-service trả về khi trừ kho — client không thể tự gửi giá.
 - Huỷ đơn sẽ hoàn kho và chuyển thanh toán đã trả sang `REFUNDED`.
 - Chuyển trạng thái đơn hàng được kiểm tra theo máy trạng thái, không cho nhảy bậc hay sửa đơn đã huỷ/đã giao.
+- Đơn đang giao (`SHIPPING`) hoặc đã giao (`DELIVERED`) thì người mua không huỷ được; đơn đã thanh toán khi huỷ sẽ chuyển sang `REFUNDED`.
 - Mỗi chủ tài khoản chỉ mở được một cửa hàng; chỉ cửa hàng `ACTIVE` mới được đăng bán.
 
 ## 3. Chạy dự án
@@ -200,7 +202,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 | DELETE | `/cart/items/{productId}`, `/cart` | đã đăng nhập | Xoá dòng / xoá giỏ |
 | POST | `/checkout` | BUYER | Đặt hàng |
 | GET | `/mine` | đã đăng nhập | Đơn của tôi |
-| PUT | `/{id}/pay` | BUYER | Thanh toán |
+| PUT | `/{id}/pay` | BUYER | Thanh toán, body `{ "paymentMethod": "COD\|BANK_TRANSFER\|MOMO\|CREDIT_CARD" }` |
 | PUT | `/{id}/cancel` | BUYER | Huỷ đơn, hoàn kho |
 | POST | `/{id}/reviews` | BUYER | Đánh giá sau khi nhận hàng |
 | GET | `/reviews?productId=` | công khai | Đánh giá của sản phẩm |
