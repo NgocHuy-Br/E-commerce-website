@@ -36,14 +36,46 @@ cd frontend && npm run dev
 
 Mọi test case gọi API đều đi qua gateway `http://localhost:8080`.
 
-## Tài khoản dùng chung cho các test case
+## Dữ liệu dùng chung cho các test case
 
-| Vai trò | Email | Mật khẩu | Ghi chú |
+**Tài khoản**
+
+| Vai trò | Email | Mật khẩu | userId | Quyền | Ghi chú |
+|---|---|---|---|---|---|
+| Quản trị viên | admin@nhom14.vn | admin123 | 1 | ADMIN | Không mua, không bán |
+| Người bán 1 | seller@nhom14.vn | seller123 | 2 | BUYER, SELLER | Chủ cửa hàng id = 1 |
+| Người mua | buyer@nhom14.vn | buyer123 | 3 | BUYER, SELLER | Có địa chỉ và đơn hàng mẫu |
+| Người bán 2 | seller2@nhom14.vn | seller123 | 4 | BUYER, SELLER | Chủ cửa hàng id = 3, dùng để test đơn nhiều shop |
+
+**Cửa hàng**
+
+| id | Chủ | Tên | Trạng thái |
 |---|---|---|---|
-| Quản trị viên | admin@nhom14.vn | admin123 | Chỉ quản trị, không mua bán |
-| Người bán 1 | seller@nhom14.vn | seller123 | Chủ cửa hàng số 1 (ACTIVE) |
-| Người bán 2 | seller2@nhom14.vn | seller123 | Chủ cửa hàng số 3, dùng để test đơn nhiều shop |
-| Người mua | buyer@nhom14.vn | buyer123 | Có sẵn địa chỉ và đơn hàng mẫu |
+| 1 | userId 2 | Shop Công Nghệ 14 | ACTIVE |
+| 3 | userId 4 | Shop Thoi Trang 14 | ACTIVE |
+
+**Danh mục**: 1 = Điện tử, 2 = Thời trang, 3 = Gia dụng
+
+**Sản phẩm**
+
+| id | Cửa hàng | Danh mục | Tên | Giá gốc | Khuyến mãi | Giá bán | Tồn kho |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1 | Tai nghe Bluetooth Air 3 | 890.000 | -20% | 712.000 | 20 |
+| 2 | 1 | 1 | Chuột không dây Logi M331 | 320.000 | không | 320.000 | 40 |
+| 3 | 1 | 3 | Bình giữ nhiệt 500ml | 250.000 | không | 250.000 | 53 |
+| 4 | 1 | 2 | Áo thun cotton basic | 180.000 | không | 180.000 | 94 |
+| 6 | 1 | 1 | San pham test dong thoi | 100.000 | không | 100.000 | **0 (hết hàng)** |
+| 7 | 3 | 2 | Mu luoi trai | 150.000 | không | 150.000 | 15 |
+
+**Mã giảm giá**
+
+| Mã | Giảm | Đơn tối thiểu | Lượt còn lại |
+|---|---|---|---|
+| NHOM14 | 10% | 500.000 | 42 |
+| SALE15 | 15% | 200.000 | 50 |
+
+Số tồn kho và số lượt mã giảm giá thay đổi theo mỗi lần chạy test, cần kiểm tra lại
+bằng `GET /api/products` và `GET /api/orders/vouchers` trước khi bắt đầu.
 
 Lấy token để gọi API:
 
@@ -54,13 +86,21 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
 ```
 
-## Cách đọc cột "Tự động hoá"
+## Cách đọc một test case
+
+Mỗi test case gồm đúng ba phần bắt buộc:
+
+- **Scenario**: tình huống và các bước thực hiện.
+- **Dữ liệu vào**: phương thức, đường dẫn, tài khoản dùng và nội dung body cụ thể.
+- **Kết quả mong đợi**: mã HTTP, thông báo chính xác, và thay đổi dữ liệu (nếu có).
+
+Kèm theo là mức ưu tiên và cách tự động hoá:
 
 | Ký hiệu | Nghĩa |
 |---|---|
-| `Unit: TênFileTest` | đã có unit test tự động, chạy bằng `./mvnw test` |
-| `API` | nên tự động hoá bằng script gọi API (curl/Postman/RestAssured) |
-| `Manual` | cần người kiểm tra trên giao diện |
+| Unit `TênFileTest` | đã có unit test tự động, chạy bằng `./mvnw test` |
+| API | nên tự động hoá bằng script gọi API (curl/Postman/RestAssured) |
+| Manual | cần người kiểm tra trên giao diện |
 
 ## Quy ước mức ưu tiên
 
