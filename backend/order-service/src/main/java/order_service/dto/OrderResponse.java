@@ -7,7 +7,7 @@ import order_service.entity.OrderStatus;
 import order_service.entity.PaymentMethod;
 import order_service.entity.PaymentStatus;
 
-public record OrderResponse(Long id, Long buyerId, BigDecimal totalAmount, BigDecimal discountAmount,
+public record OrderResponse(Long id, Long buyerId, Long storeId, BigDecimal totalAmount, BigDecimal discountAmount,
         String voucherCode, String shippingAddress, PaymentMethod paymentMethod, PaymentStatus paymentStatus,
         OrderStatus status, Instant createdAt, List<OrderItemResponse> items) {
 }

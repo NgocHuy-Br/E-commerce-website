@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import product_service.dto.CatalogStatsResponse;
 import product_service.dto.CategoryRequest;
+import product_service.dto.PageResponse;
 import product_service.dto.ProductRequest;
 import product_service.dto.ProductResponse;
 import product_service.dto.PromotionRequest;
@@ -43,15 +45,20 @@ public class ProductController {
         this.internalApiKey = internalApiKey;
     }
 
-    /** Tìm kiếm hàng hoá theo từ khoá, danh mục, khoảng giá và sắp xếp. */
+    /** Tìm kiếm hàng hoá theo từ khoá, danh mục, khoảng giá, sắp xếp và có phân trang. */
     @GetMapping
-    public List<ProductResponse> search(
+    public PageResponse<ProductResponse> search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
-            @RequestParam(defaultValue = "newest") String sort) {
-        return productService.search(keyword, categoryId, minPrice, maxPrice, sortOf(sort));
+            @RequestParam(defaultValue = "newest") String sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 48);
+        return productService.search(keyword, categoryId, minPrice, maxPrice,
+                PageRequest.of(safePage, safeSize, sortOf(sort)));
     }
 
     @GetMapping("/{productId}")

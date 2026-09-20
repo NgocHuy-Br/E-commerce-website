@@ -74,6 +74,19 @@ Gọi nội bộ giữa các service:
 - Huỷ đơn khi shop chưa giao: có popup xác nhận, báo trước việc hoàn tiền về tài khoản ngân hàng trong 1-3 ngày làm việc, hàng được hoàn kho.
 - Đánh sao 1–5 và nhận xét sau khi đơn ở trạng thái `DELIVERED`, mỗi sản phẩm một lần trên mỗi đơn.
 
+### Kiểm thử
+
+```bash
+cd backend/<ten-service> && ./mvnw test
+```
+
+41 test, chạy được toàn bộ: auth-service 10, product-service 12, order-service 16,
+user-service/store-service/api-gateway mỗi service 1. Phần lớn là unit test với Mockito
+(không cần cơ sở dữ liệu), riêng `*ApplicationTests` cần MySQL đang chạy.
+Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khuyến mãi, tổng tiền và
+phân bổ giảm giá khi tách đơn nhiều cửa hàng, quy tắc mã giảm giá, quy tắc phân quyền
+(ADMIN loại trừ BUYER/SELLER) và giới hạn số lần đăng nhập sai.
+
 ### Cơ chế đảm bảo dữ liệu đúng
 
 - **Chống bán vượt tồn kho**: khi trừ hoặc hoàn kho, product-service khoá dòng sản phẩm
@@ -92,7 +105,20 @@ Gọi nội bộ giữa các service:
 - **Timeout khi gọi liên service**: `spring.http.client.connect-timeout=3s`, `read-timeout=8s`.
 - **Giỏ hàng trong Redis có TTL 30 ngày**, không giữ dữ liệu rác vô hạn.
 - **Mã lỗi đúng ngữ nghĩa**: 401 khi chưa đăng nhập hoặc token hết hạn (frontend tự đăng xuất),
-  403 khi đã đăng nhập nhưng thiếu quyền, 409 khi tranh chấp dữ liệu hoặc trùng dữ liệu duy nhất.
+  403 khi đã đăng nhập nhưng thiếu quyền, 409 khi tranh chấp dữ liệu hoặc trùng dữ liệu duy nhất,
+  429 khi đăng nhập sai quá nhiều lần.
+- **Mỗi đơn hàng thuộc một cửa hàng**: giỏ hàng có sản phẩm của nhiều cửa hàng được tách thành
+  nhiều đơn khi thanh toán, mã giảm giá của cả giỏ được chia theo tỉ lệ giá trị từng đơn.
+  Nhờ vậy người bán chỉ thấy và chỉ xử lý được đơn của chính cửa hàng mình.
+- **Chống tạo trùng đơn**: client gửi header `Idempotency-Key`, order-service lưu kết quả lần
+  xử lý đầu trong Redis nên bấm đặt hàng hai lần chỉ tạo một bộ đơn.
+- **Chặn dò mật khẩu**: sai 5 lần trong 5 phút thì tạm khoá đăng nhập của email đó (429).
+  Bộ đếm lưu trong bộ nhớ tiến trình nên chỉ đúng khi chạy một bản auth-service.
+- **Không thu quyền người bán trực tiếp**: muốn dừng hoạt động bán hàng thì tạm ngưng cửa hàng,
+  tránh trường hợp cửa hàng và sản phẩm còn đó nhưng không ai quản lý được.
+- **Gateway chặn API nội bộ**: mọi đường dẫn chứa `/internal/` bị trả 404 ở gateway, chỉ service
+  gọi trực tiếp cho nhau mới dùng được.
+- **API đánh giá công khai không trả mã người mua và mã đơn hàng.**
 
 ### Quy tắc nghiệp vụ đáng chú ý
 - Giá chốt đơn là giá sau khuyến mãi đang hiệu lực, do product-service trả về khi trừ kho — client không thể tự gửi giá.
@@ -184,7 +210,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 ### product-service — `/api/products`
 | Method | Path | Quyền | Mô tả |
 |---|---|---|---|
-| GET | `/?keyword=&categoryId=&minPrice=&maxPrice=&sort=` | công khai | Tìm kiếm, lọc, sắp xếp |
+| GET | `/?keyword=&categoryId=&minPrice=&maxPrice=&sort=&page=&size=` | công khai | Tìm kiếm, lọc, sắp xếp, phân trang (mặc định 12, tối đa 48/trang) |
 | GET | `/{id}` | công khai | Chi tiết (kèm giá sau khuyến mãi) |
 | GET | `/categories` | công khai | Danh mục |
 | GET | `/{id}/promotions` | công khai | Khuyến mãi của sản phẩm |
@@ -223,7 +249,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 | PUT | `/cart/items/{productId}?quantity=` | đã đăng nhập | Đổi số lượng (0 = xoá) |
 | POST | `/cart/revalidate` | BUYER | Đối chiếu giá/tồn kho, trả về danh sách thay đổi |
 | DELETE | `/cart/items/{productId}`, `/cart` | đã đăng nhập | Xoá dòng / xoá giỏ |
-| POST | `/checkout` | BUYER | Đặt hàng |
+| POST | `/checkout` | BUYER | Đặt hàng; trả về danh sách đơn (tách theo cửa hàng), nhận header `Idempotency-Key` |
 | GET | `/mine` | đã đăng nhập | Đơn của tôi |
 | PUT | `/{id}/pay` | BUYER | Thanh toán, body `{ "paymentMethod": "COD\|BANK_TRANSFER\|MOMO\|CREDIT_CARD" }` |
 | PUT | `/{id}/cancel` | BUYER | Huỷ đơn, hoàn kho |
@@ -243,8 +269,11 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 - Lớp bảo mật JWT bị lặp ở 5 service (chưa tách thành module dùng chung).
 - Endpoint `/api/products/internal/**` chỉ được bảo vệ bằng `X-Internal-Key`; nên chặn thêm ở tầng mạng/gateway khi triển khai thật.
 - Trừ kho, hoàn kho và bù trừ khi đặt hàng lỗi đều gọi HTTP đồng bộ (best-effort), chưa dùng saga/message queue.
-- Đơn nhiều cửa hàng vẫn gộp thành một đơn, nên người bán thấy cả đơn có sản phẩm của shop khác.
-- Khoá tài khoản chỉ có hiệu lực khi token hết hạn (tối đa 24 giờ) vì quyền nằm trong JWT.
-- Chưa có phân trang; thống kê của quản trị viên nạp toàn bộ đơn hàng vào bộ nhớ.
+- Khoá tài khoản và đổi quyền chỉ có hiệu lực hoàn toàn khi token cũ hết hạn (8 giờ) vì quyền nằm
+  trong JWT; muốn thu hồi tức thì cần danh sách token bị chặn hoặc gateway gọi introspect.
+- Giới hạn đăng nhập sai theo email nên người khác có thể cố tình làm khoá tạm một email;
+  hệ thống thật thường kết hợp thêm giới hạn theo IP và CAPTCHA.
+- Đơn hàng và danh sách tài khoản chưa phân trang (đã phân trang cho tìm kiếm sản phẩm).
+- Người mua vẫn tự bấm xác nhận đã thanh toán đơn COD (mô phỏng, chưa nối cổng thanh toán thật).
 - Mỗi cửa hàng chỉ có một đơn hàng gộp: đơn nhiều shop chưa được tách theo shop.
 - Chưa có unit/integration test (chỉ có test `contextLoads` mặc định).

@@ -14,6 +14,10 @@ public class CustomerOrder {
     private Long id;
     @Column(nullable = false)
     private Long buyerId;
+
+    /** Mỗi đơn hàng chỉ thuộc một cửa hàng; giỏ nhiều shop được tách thành nhiều đơn. */
+    @Column(nullable = false)
+    private Long storeId;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
     @Column(nullable = false, length = 500)
@@ -39,8 +43,9 @@ public class CustomerOrder {
     protected CustomerOrder() {
     }
 
-    public CustomerOrder(Long buyerId, String shippingAddress, PaymentMethod paymentMethod) {
+    public CustomerOrder(Long buyerId, Long storeId, String shippingAddress, PaymentMethod paymentMethod) {
         this.buyerId = buyerId;
+        this.storeId = storeId;
         this.shippingAddress = shippingAddress;
         this.paymentMethod = paymentMethod;
         // Trả trước thì ghi nhận đã thanh toán ngay, COD thì chờ người mua trả tiền.
@@ -55,11 +60,17 @@ public class CustomerOrder {
         totalAmount = totalAmount.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 
-    public void applyVoucher(Voucher voucher) {
-        discountAmount = totalAmount.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
-                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
-        totalAmount = totalAmount.subtract(discountAmount);
-        voucherCode = voucher.getCode();
+    /**
+     * Ghi nhận phần giảm giá đã được phân bổ cho đơn này.
+     * Mã giảm giá áp cho cả giỏ hàng nên khi tách đơn phải chia theo tỉ lệ giá trị từng đơn.
+     */
+    public void applyDiscount(String voucherCode, BigDecimal discount) {
+        if (discount.signum() <= 0) {
+            return;
+        }
+        this.discountAmount = discount;
+        this.totalAmount = totalAmount.subtract(discount);
+        this.voucherCode = voucherCode;
     }
 
     public Long getId() {
@@ -68,6 +79,10 @@ public class CustomerOrder {
 
     public Long getBuyerId() {
         return buyerId;
+    }
+
+    public Long getStoreId() {
+        return storeId;
     }
 
     public BigDecimal getTotalAmount() {

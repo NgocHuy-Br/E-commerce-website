@@ -257,9 +257,7 @@ export default function ProductDetailPage() {
                 <li key={review.id} className="py-3 first:pt-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Stars rating={review.rating} />
-                    <span className="text-sm font-medium">
-                      Người mua #{review.buyerId}
-                    </span>
+                    <span className="text-sm font-medium">Khách đã mua hàng</span>
                     <span className="text-xs text-slate-400">
                       {formatDateTime(review.createdAt)}
                     </span>

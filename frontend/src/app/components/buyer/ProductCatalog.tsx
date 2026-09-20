@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { api, errorMessage, query } from "../../lib/api";
 import { useCart } from "../../lib/cart";
@@ -8,24 +9,38 @@ import { formatCurrency } from "../../lib/format";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
-import type { Category, Product, ReviewSummary } from "../../lib/types";
+import type { Category, PageResponse, Product, ReviewSummary } from "../../lib/types";
 import { Stars } from "../Stars";
 import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
 
-/** Tìm kiếm hàng hoá ở trang chủ: từ khoá, danh mục, khoảng giá, sắp xếp. */
+const PAGE_SIZE = 12;
+
+/** Tìm kiếm hàng hoá ở trang chủ: từ khoá, danh mục, khoảng giá, sắp xếp, phân trang. */
 export function ProductCatalog() {
   const { token, isAdmin } = useSession();
   const notify = useNotify();
   const { addItem } = useCart();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  // Điều kiện tìm kiếm lấy từ URL nên bấm quay lại hoặc chia sẻ link vẫn giữ nguyên kết quả.
+  const keywordParam = searchParams.get("keyword") ?? "";
+  const categoryParam = searchParams.get("categoryId") ?? "";
+  const minPriceParam = searchParams.get("minPrice") ?? "";
+  const maxPriceParam = searchParams.get("maxPrice") ?? "";
+  const sortParam = searchParams.get("sort") ?? "newest";
+  const pageParam = Number(searchParams.get("page") ?? "0") || 0;
+
+  const [keyword, setKeyword] = useState(keywordParam);
+  const [categoryId, setCategoryId] = useState(categoryParam);
+  const [minPrice, setMinPrice] = useState(minPriceParam);
+  const [maxPrice, setMaxPrice] = useState(maxPriceParam);
+  const [sort, setSort] = useState(sortParam);
+
+  const [page, setPage] = useState<PageResponse<Product> | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [ratings, setRatings] = useState<Record<number, ReviewSummary>>({});
-  const [keyword, setKeyword] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState("newest");
   const [loading, setLoading] = useState(false);
 
   const loadRatings = useCallback(async (items: Product[]) => {
@@ -35,43 +50,72 @@ export function ProductCatalog() {
     const summaries = await api<ReviewSummary[]>(
       `/api/orders/reviews/summary?productIds=${items.map((item) => item.id).join(",")}`,
     ).catch(() => [] as ReviewSummary[]);
-    setRatings(
-      Object.fromEntries(
-        summaries.map((summary) => [summary.productId, summary]),
-      ),
-    );
+    setRatings(Object.fromEntries(summaries.map((summary) => [summary.productId, summary])));
   }, []);
 
-  const loadInitial = useCallback(async () => {
+  /** Nạp danh mục và trang sản phẩm theo đúng điều kiện đang có trên URL. */
+  const load = useCallback(async () => {
     try {
-      const [categoryData, productData] = await Promise.all([
+      const [categoryData, pageData] = await Promise.all([
         api<Category[]>("/api/products/categories"),
-        api<Product[]>("/api/products?sort=newest"),
+        api<PageResponse<Product>>(
+          `/api/products${query({
+            keyword: keywordParam,
+            categoryId: categoryParam,
+            minPrice: minPriceParam,
+            maxPrice: maxPriceParam,
+            sort: sortParam,
+            page: pageParam,
+            size: PAGE_SIZE,
+          })}`,
+        ),
       ]);
       setCategories(categoryData);
-      setProducts(productData);
-      await loadRatings(productData);
+      setPage(pageData);
+      await loadRatings(pageData.items);
     } catch (error) {
       notify(errorMessage(error, "Không thể tải sản phẩm."), "error");
     }
-  }, [loadRatings, notify]);
+  }, [
+    keywordParam,
+    categoryParam,
+    minPriceParam,
+    maxPriceParam,
+    sortParam,
+    pageParam,
+    loadRatings,
+    notify,
+  ]);
 
-  useLoadEffect(loadInitial);
+  useLoadEffect(load);
 
-  const search = async () => {
+  /** Ghi điều kiện tìm kiếm vào URL, việc nạp dữ liệu do useLoadEffect đảm nhiệm. */
+  const applyFilters = (nextPage = 0) => {
     setLoading(true);
-    try {
-      const result = await api<Product[]>(
-        `/api/products${query({ keyword, categoryId, minPrice, maxPrice, sort })}`,
-      );
-      setProducts(result);
-      await loadRatings(result);
-    } catch (error) {
-      notify(errorMessage(error, "Không thể tải sản phẩm."), "error");
-    } finally {
-      setLoading(false);
-    }
+    router.replace(
+      `${pathname}${query({
+        keyword,
+        categoryId,
+        minPrice,
+        maxPrice,
+        sort: sort === "newest" ? "" : sort,
+        page: nextPage === 0 ? "" : nextPage,
+      })}`,
+      { scroll: nextPage !== 0 },
+    );
+    setLoading(false);
   };
+
+  const resetFilters = () => {
+    setKeyword("");
+    setCategoryId("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSort("newest");
+    router.replace(pathname);
+  };
+
+  const products = page?.items ?? [];
 
   return (
     <div className="space-y-5">
@@ -82,7 +126,7 @@ export function ProductCatalog() {
               value={keyword}
               onChange={setKeyword}
               placeholder="Tên sản phẩm"
-              onEnter={search}
+              onEnter={() => applyFilters()}
             />
           </Field>
           <Field label="Danh mục">
@@ -111,32 +155,25 @@ export function ProductCatalog() {
             />
           </Field>
           <Field label="Giá từ">
-            <TextInput
-              type="number"
-              value={minPrice}
-              onChange={setMinPrice}
-              placeholder="0"
-            />
+            <TextInput type="number" value={minPrice} onChange={setMinPrice} placeholder="0" />
           </Field>
           <Field label="Giá đến">
-            <TextInput
-              type="number"
-              value={maxPrice}
-              onChange={setMaxPrice}
-              placeholder="1000000"
-            />
+            <TextInput type="number" value={maxPrice} onChange={setMaxPrice} placeholder="1000000" />
           </Field>
-          <div className="flex items-end">
-            <Button
-              variant="accent"
-              className="w-full"
-              onClick={search}
-              disabled={loading}
-            >
+          <div className="flex items-end gap-2">
+            <Button variant="accent" className="flex-1" onClick={() => applyFilters()} disabled={loading}>
               {loading ? "Đang tìm..." : "Tìm kiếm"}
+            </Button>
+            <Button variant="ghost" onClick={resetFilters}>
+              Bỏ lọc
             </Button>
           </div>
         </div>
+        {page && page.totalItems > 0 && (
+          <p className="mt-3 text-xs text-slate-500">
+            Tìm thấy {page.totalItems} sản phẩm · trang {page.page + 1}/{page.totalPages}
+          </p>
+        )}
       </Card>
 
       {products.length === 0 ? (
@@ -144,97 +181,105 @@ export function ProductCatalog() {
           <Empty>Không tìm thấy sản phẩm phù hợp.</Empty>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {products.map((product) => {
-            const rating = ratings[product.id];
-            return (
-              <article
-                key={product.id}
-                className="flex flex-col border border-stone-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-              >
-                <Link
-                  href={`/products/${product.id}`}
-                  className="flex aspect-square items-center justify-center overflow-hidden bg-stone-100 text-sm text-slate-400"
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {products.map((product) => {
+              const rating = ratings[product.id];
+              return (
+                <article
+                  key={product.id}
+                  className="flex flex-col border border-stone-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                 >
-                  {product.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    "Chưa có ảnh"
-                  )}
-                </Link>
-                <div className="mt-3 flex items-start justify-between gap-2">
                   <Link
                     href={`/products/${product.id}`}
-                    className="font-semibold hover:text-teal-800"
+                    className="flex aspect-square items-center justify-center overflow-hidden bg-stone-100 text-sm text-slate-400"
                   >
-                    {product.name}
+                    {product.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      "Chưa có ảnh"
+                    )}
                   </Link>
-                  {product.discountPercent > 0 && (
-                    <Badge tone="danger">-{product.discountPercent}%</Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {product.categoryName}
-                </p>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                  {product.description || "Chưa có mô tả"}
-                </p>
-                <div className="mt-2">
-                  <Stars
-                    rating={rating?.averageRating ?? 0}
-                    count={rating?.reviewCount ?? 0}
-                  />
-                </div>
-                <p className="mt-2 font-semibold text-teal-800">
-                  {formatCurrency(product.effectivePrice)}
-                  {product.discountPercent > 0 && (
-                    <span className="ml-2 text-xs font-normal text-slate-400 line-through">
-                      {formatCurrency(product.price)}
-                    </span>
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Còn {product.stockQuantity} sản phẩm
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {/* Quản trị viên chỉ xem, không mua hàng. */}
-                  {!isAdmin && (
-                    <Button
-                      className="flex-1"
-                      disabled={product.stockQuantity < 1}
-                      onClick={() => addItem(product, 1)}
+                  <div className="mt-3 flex items-start justify-between gap-2">
+                    <Link
+                      href={`/products/${product.id}`}
+                      className="font-semibold hover:text-teal-800"
                     >
-                      Thêm vào giỏ
-                    </Button>
+                      {product.name}
+                    </Link>
+                    {product.discountPercent > 0 && (
+                      <Badge tone="danger">-{product.discountPercent}%</Badge>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{product.categoryName}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                    {product.description || "Chưa có mô tả"}
+                  </p>
+                  <div className="mt-2">
+                    <Stars rating={rating?.averageRating ?? 0} count={rating?.reviewCount ?? 0} />
+                  </div>
+                  <p className="mt-2 font-semibold text-teal-800">
+                    {formatCurrency(product.effectivePrice)}
+                    {product.discountPercent > 0 && (
+                      <span className="ml-2 text-xs font-normal text-slate-400 line-through">
+                        {formatCurrency(product.price)}
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Còn {product.stockQuantity} sản phẩm</p>
+                  <div className="mt-3 flex gap-2">
+                    {!isAdmin && (
+                      <Button
+                        className="flex-1"
+                        disabled={product.stockQuantity < 1}
+                        onClick={() => addItem(product, 1)}
+                      >
+                        Thêm vào giỏ
+                      </Button>
+                    )}
+                    <Link
+                      href={`/products/${product.id}`}
+                      className={`border border-stone-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-stone-100 ${
+                        isAdmin ? "flex-1" : ""
+                      }`}
+                    >
+                      Chi tiết
+                    </Link>
+                  </div>
+                  {!token && <p className="mt-2 text-xs text-slate-400">Cần đăng nhập để mua hàng.</p>}
+                  {isAdmin && (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Tài khoản quản trị chỉ xem, không mua hàng.
+                    </p>
                   )}
-                  <Link
-                    href={`/products/${product.id}`}
-                    className={`border border-stone-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-stone-100 ${
-                      isAdmin ? "flex-1" : ""
-                    }`}
-                  >
-                    Chi tiết
-                  </Link>
-                </div>
-                {!token && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Cần đăng nhập để mua hàng.
-                  </p>
-                )}
-                {isAdmin && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Tài khoản quản trị chỉ xem, không mua hàng.
-                  </p>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {page && page.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="ghost"
+                disabled={page.page === 0}
+                onClick={() => applyFilters(page.page - 1)}
+              >
+                ← Trang trước
+              </Button>
+              <span className="text-sm text-slate-600">
+                Trang {page.page + 1} / {page.totalPages}
+              </span>
+              <Button variant="ghost" disabled={!page.hasNext} onClick={() => applyFilters(page.page + 1)}>
+                Trang sau →
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

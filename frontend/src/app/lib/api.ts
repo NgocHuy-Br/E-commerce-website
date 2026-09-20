@@ -17,6 +17,8 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string | null;
+  /** Gửi kèm để server nhận ra yêu cầu bị gửi lặp (dùng khi đặt hàng). */
+  idempotencyKey?: string;
 };
 
 /** Đọc thông báo lỗi do GlobalExceptionHandler của backend trả về. */
@@ -48,13 +50,14 @@ export async function api<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, token } = options;
+  const { method = "GET", body, token, idempotencyKey } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     cache: "no-store",
     headers: {
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });

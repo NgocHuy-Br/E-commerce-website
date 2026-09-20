@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import order_service.dto.CartItemResponse;
@@ -56,10 +57,11 @@ public class OrderService {
     private final VoucherRepository voucherRepository;
     private final ReviewRepository reviewRepository;
     private final OrderWriteService orderWriteService;
+    private final CheckoutIdempotencyService idempotencyService;
 
     public OrderService(CartService cartService, CustomerOrderRepository orderRepository, ProductClient productClient,
             StoreClient storeClient, VoucherRepository voucherRepository, ReviewRepository reviewRepository,
-            OrderWriteService orderWriteService) {
+            OrderWriteService orderWriteService, CheckoutIdempotencyService idempotencyService) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
         this.productClient = productClient;
@@ -67,16 +69,26 @@ public class OrderService {
         this.voucherRepository = voucherRepository;
         this.reviewRepository = reviewRepository;
         this.orderWriteService = orderWriteService;
+        this.idempotencyService = idempotencyService;
     }
 
     /**
      * Đặt hàng: trừ kho ở product-service trước (ngoài transaction), sau đó mới ghi đơn.
+     * Giỏ hàng có sản phẩm của nhiều cửa hàng sẽ được tách thành nhiều đơn.
      * Nếu bước ghi đơn thất bại thì hoàn lại toàn bộ phần kho đã trừ.
-     * Giỏ hàng chỉ được dọn sau khi đơn đã lưu thành công.
      */
-    public OrderResponse checkout(Long buyerId, CheckoutRequest request) {
+    public List<OrderResponse> checkout(Long buyerId, CheckoutRequest request, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<List<Long>> alreadyCreated = idempotencyService.begin(buyerId, idempotencyKey);
+            if (alreadyCreated.isPresent()) {
+                // Yêu cầu này đã được xử lý trước đó, trả lại đúng các đơn đã tạo.
+                return toResponses(orderRepository.findAllByIdInOrderByIdDesc(alreadyCreated.get()));
+            }
+        }
+
         List<CartItemResponse> cart = cartService.getCart(buyerId);
         if (cart.isEmpty()) {
+            releaseIdempotency(buyerId, idempotencyKey);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng đang trống");
         }
 
@@ -87,13 +99,24 @@ public class OrderService {
                 reserved.add(new ReservedItem(product.id(), product.storeId(), product.name(),
                         product.sellingPrice(), item.quantity()));
             }
-            CustomerOrder saved = orderWriteService.createOrder(buyerId, request, reserved);
+            List<CustomerOrder> saved = orderWriteService.createOrders(buyerId, request, reserved);
             cartService.clearCart(buyerId);
-            return toResponse(saved, Set.of());
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                idempotencyService.complete(buyerId, idempotencyKey,
+                        saved.stream().map(CustomerOrder::getId).toList());
+            }
+            return saved.stream().map(order -> toResponse(order, Set.of())).toList();
         } catch (RuntimeException exception) {
             // Đơn chưa được tạo nên phải hoàn lại phần kho đã trừ.
             releaseQuietly(reserved);
+            releaseIdempotency(buyerId, idempotencyKey);
             throw exception;
+        }
+    }
+
+    private void releaseIdempotency(Long buyerId, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyService.release(buyerId, idempotencyKey);
         }
     }
 
@@ -106,7 +129,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> getForSeller(String authorization) {
         Long storeId = storeClient.myStore(authorization).id();
-        return toResponses(orderRepository.findAllByStoreId(storeId));
+        return toResponses(orderRepository.findAllByStoreIdOrderByIdDesc(storeId));
     }
 
     @Transactional(readOnly = true)
@@ -114,21 +137,17 @@ public class OrderService {
         return toResponses(orderRepository.findAllByOrderByIdDesc());
     }
 
+    /** Thống kê bằng truy vấn tổng hợp, không nạp toàn bộ đơn hàng vào bộ nhớ. */
     @Transactional(readOnly = true)
     public PlatformOrderStatsResponse getStatistics() {
-        List<CustomerOrder> orders = orderRepository.findAll();
-        BigDecimal revenue = orders.stream()
-                .filter(order -> order.getStatus() != OrderStatus.CANCELLED)
-                .map(CustomerOrder::getTotalAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        Map<String, Long> byStatus = orders.stream()
-                .collect(Collectors.groupingBy(order -> order.getStatus().name(), Collectors.counting()));
+        Map<String, Long> byStatus = orderRepository.countGroupedByStatus().stream()
+                .collect(Collectors.toMap(row -> row.getStatus().name(), CustomerOrderRepository.StatusCount::getTotal));
         return new PlatformOrderStatsResponse(
-                orders.size(),
-                revenue,
-                orders.stream().filter(order -> order.getPaymentStatus() == PaymentStatus.PAID).count(),
-                orders.stream().filter(order -> order.getStatus() == OrderStatus.DELIVERED).count(),
-                orders.stream().filter(order -> order.getStatus() == OrderStatus.CANCELLED).count(),
+                orderRepository.count(),
+                orderRepository.sumRevenueExcludingStatus(OrderStatus.CANCELLED),
+                orderRepository.countByPaymentStatus(PaymentStatus.PAID),
+                orderRepository.countByStatus(OrderStatus.DELIVERED),
+                orderRepository.countByStatus(OrderStatus.CANCELLED),
                 reviewRepository.count(),
                 reviewRepository.averageRating(),
                 byStatus);
@@ -140,9 +159,7 @@ public class OrderService {
         CustomerOrder order = findOrder(orderId);
         if (!principal.roles().contains("ADMIN")) {
             Long storeId = storeClient.myStore(authorization).id();
-            boolean ownsAnyItem = order.getItems().stream()
-                    .anyMatch(item -> item.getStoreId().equals(storeId));
-            if (!ownsAnyItem) {
+            if (!storeId.equals(order.getStoreId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Đơn hàng không thuộc cửa hàng của bạn");
             }
         }
@@ -270,7 +287,8 @@ public class OrderService {
                 .map(item -> new OrderItemResponse(item.getProductId(), item.getStoreId(), item.getProductName(),
                         item.getUnitPrice(), item.getQuantity(), reviewedProductIds.contains(item.getProductId())))
                 .toList();
-        return new OrderResponse(order.getId(), order.getBuyerId(), order.getTotalAmount(), order.getDiscountAmount(),
+        return new OrderResponse(order.getId(), order.getBuyerId(), order.getStoreId(), order.getTotalAmount(),
+                order.getDiscountAmount(),
                 order.getVoucherCode(), order.getShippingAddress(), order.getPaymentMethod(), order.getPaymentStatus(),
                 order.getStatus(), order.getCreatedAt(), items);
     }

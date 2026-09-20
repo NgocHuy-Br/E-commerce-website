@@ -74,7 +74,7 @@ public class ReviewService {
     }
 
     private ReviewResponse toResponse(Review review) {
-        return new ReviewResponse(review.getId(), review.getOrder().getId(), review.getProductId(),
-                review.getOrder().getBuyerId(), review.getRating(), review.getComment(), review.getCreatedAt());
+        return new ReviewResponse(review.getId(), review.getProductId(), review.getRating(), review.getComment(),
+                review.getCreatedAt());
     }
 }

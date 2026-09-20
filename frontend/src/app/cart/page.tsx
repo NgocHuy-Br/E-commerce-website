@@ -46,6 +46,8 @@ export default function CartPage() {
   const [voucherCode, setVoucherCode] = useState("");
   const [placing, setPlacing] = useState(false);
   const [changes, setChanges] = useState<CartChange[]>([]);
+  // Mỗi lần mở trang sinh một khoá, gửi kèm khi đặt hàng để bấm hai lần không tạo trùng đơn.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   const load = useCallback(async () => {
     // Mở trang giỏ hàng thì đối chiếu lại giá và tồn kho với product-service.
@@ -146,9 +148,10 @@ export default function CartPage() {
         return;
       }
       setChanges([]);
-      const order = await api<Order>("/api/orders/checkout", {
+      const orders = await api<Order[]>("/api/orders/checkout", {
         method: "POST",
         token,
+        idempotencyKey,
         body: {
           shippingAddress: address,
           paymentMethod,
@@ -156,7 +159,14 @@ export default function CartPage() {
         },
       });
       clear();
-      notify(`Đặt hàng thành công. Mã đơn #${order.id}`, "success");
+      setIdempotencyKey(crypto.randomUUID());
+      notify(
+        orders.length === 1
+          ? `Đặt hàng thành công. Mã đơn #${orders[0].id}`
+          : `Đặt hàng thành công. Giỏ hàng có sản phẩm của ${orders.length} cửa hàng nên được tách thành ${orders.length} đơn: ` +
+              orders.map((order) => `#${order.id}`).join(", "),
+        "success",
+      );
       router.push("/orders");
     } catch (error) {
       notify(errorMessage(error, "Không thể đặt hàng."), "error");

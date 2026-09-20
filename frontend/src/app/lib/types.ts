@@ -142,9 +142,19 @@ export type OrderItem = {
   reviewed: boolean;
 };
 
+export type PageResponse<T> = {
+  items: T[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+};
+
 export type Order = {
   id: number;
   buyerId: number;
+  storeId: number;
   totalAmount: number;
   discountAmount: number;
   voucherCode: string | null;
@@ -169,9 +179,7 @@ export type OrderStats = {
 
 export type Review = {
   id: number;
-  orderId: number;
   productId: number;
-  buyerId: number;
   rating: number;
   comment: string | null;
   createdAt: string;
