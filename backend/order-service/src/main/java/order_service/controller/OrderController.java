@@ -22,16 +22,12 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    /**
-     * Đặt hàng. Giỏ nhiều cửa hàng sẽ tạo nhiều đơn nên kết quả là một danh sách.
-     * Header Idempotency-Key giúp bấm hai lần không tạo trùng đơn.
-     */
+    /** Đặt hàng. Giỏ hàng nhiều cửa hàng sẽ tạo nhiều đơn nên kết quả là một danh sách. */
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('BUYER')")
     public List<OrderResponse> checkout(@AuthenticationPrincipal AuthPrincipal principal,
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CheckoutRequest request) {
-        return orderService.checkout(principal.userId(), request, idempotencyKey);
+        return orderService.checkout(principal.userId(), request);
     }
 
     @GetMapping("/mine")

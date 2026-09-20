@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import product_service.dto.CatalogStatsResponse;
 import product_service.dto.CategoryRequest;
-import product_service.dto.PageResponse;
 import product_service.dto.ProductRequest;
 import product_service.dto.ProductResponse;
 import product_service.dto.PromotionRequest;
@@ -44,12 +43,11 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> search(String keyword, Long categoryId, BigDecimal minPrice,
-            BigDecimal maxPrice, org.springframework.data.domain.Pageable pageable) {
+    public List<ProductResponse> search(String keyword, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice,
+            org.springframework.data.domain.Sort sort) {
         String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
-        org.springframework.data.domain.Page<Product> page = productRepository.search(ProductStatus.ACTIVE,
-                normalizedKeyword, categoryId, minPrice, maxPrice, pageable);
-        return PageResponse.of(page, toResponses(page.getContent()));
+        return toResponses(productRepository.search(ProductStatus.ACTIVE, normalizedKeyword, categoryId, minPrice,
+                maxPrice, sort));
     }
 
     @Transactional(readOnly = true)

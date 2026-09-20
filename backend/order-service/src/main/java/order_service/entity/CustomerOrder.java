@@ -60,17 +60,12 @@ public class CustomerOrder {
         totalAmount = totalAmount.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 
-    /**
-     * Ghi nhận phần giảm giá đã được phân bổ cho đơn này.
-     * Mã giảm giá áp cho cả giỏ hàng nên khi tách đơn phải chia theo tỉ lệ giá trị từng đơn.
-     */
-    public void applyDiscount(String voucherCode, BigDecimal discount) {
-        if (discount.signum() <= 0) {
-            return;
-        }
-        this.discountAmount = discount;
-        this.totalAmount = totalAmount.subtract(discount);
-        this.voucherCode = voucherCode;
+    /** Áp mã giảm giá theo phần trăm lên tổng tiền của đơn này. */
+    public void applyVoucher(Voucher voucher) {
+        discountAmount = totalAmount.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        totalAmount = totalAmount.subtract(discountAmount);
+        voucherCode = voucher.getCode();
     }
 
     public Long getId() {

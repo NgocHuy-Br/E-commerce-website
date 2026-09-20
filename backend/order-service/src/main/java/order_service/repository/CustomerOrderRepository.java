@@ -18,8 +18,6 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     /** Mỗi đơn chỉ thuộc một cửa hàng nên người bán chỉ cần lọc theo storeId. */
     List<CustomerOrder> findAllByStoreIdOrderByIdDesc(Long storeId);
 
-    List<CustomerOrder> findAllByIdInOrderByIdDesc(List<Long> ids);
-
     long countByStatus(OrderStatus status);
 
     long countByPaymentStatus(PaymentStatus paymentStatus);

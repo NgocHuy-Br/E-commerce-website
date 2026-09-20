@@ -3,6 +3,8 @@ package order_service.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,28 +45,17 @@ class CustomerOrderTest {
     }
 
     @Test
-    @DisplayName("Áp mã giảm giá thì trừ đúng số tiền và lưu lại mã đã dùng")
-    void applyDiscountReducesTotal() {
+    @DisplayName("Áp mã giảm 10% thì trừ đúng số tiền và lưu lại mã đã dùng")
+    void applyVoucherReducesTotal() {
         CustomerOrder order = newOrder(PaymentMethod.COD);
         order.addItem(new OrderItem(order, 1L, 1L, "Tai nghe", new BigDecimal("712000"), 1));
         order.addItem(new OrderItem(order, 3L, 1L, "Bình giữ nhiệt", new BigDecimal("250000"), 2));
 
-        order.applyDiscount("NHOM14", new BigDecimal("121200"));
+        order.applyVoucher(new Voucher("NHOM14", 10, BigDecimal.ZERO, 5,
+                Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(1, ChronoUnit.DAYS)));
 
         assertThat(order.getDiscountAmount()).isEqualByComparingTo("121200");
         assertThat(order.getTotalAmount()).isEqualByComparingTo("1090800");
         assertThat(order.getVoucherCode()).isEqualTo("NHOM14");
-    }
-
-    @Test
-    @DisplayName("Phần giảm giá bằng không thì không ghi mã vào đơn")
-    void zeroDiscountIsIgnored() {
-        CustomerOrder order = newOrder(PaymentMethod.COD);
-        order.addItem(new OrderItem(order, 1L, 1L, "Tai nghe", new BigDecimal("500000"), 1));
-
-        order.applyDiscount("NHOM14", BigDecimal.ZERO);
-
-        assertThat(order.getVoucherCode()).isNull();
-        assertThat(order.getTotalAmount()).isEqualByComparingTo("500000");
     }
 }

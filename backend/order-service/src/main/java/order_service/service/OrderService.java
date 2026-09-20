@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import order_service.dto.CartItemResponse;
@@ -57,11 +56,10 @@ public class OrderService {
     private final VoucherRepository voucherRepository;
     private final ReviewRepository reviewRepository;
     private final OrderWriteService orderWriteService;
-    private final CheckoutIdempotencyService idempotencyService;
 
     public OrderService(CartService cartService, CustomerOrderRepository orderRepository, ProductClient productClient,
             StoreClient storeClient, VoucherRepository voucherRepository, ReviewRepository reviewRepository,
-            OrderWriteService orderWriteService, CheckoutIdempotencyService idempotencyService) {
+            OrderWriteService orderWriteService) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
         this.productClient = productClient;
@@ -69,26 +67,16 @@ public class OrderService {
         this.voucherRepository = voucherRepository;
         this.reviewRepository = reviewRepository;
         this.orderWriteService = orderWriteService;
-        this.idempotencyService = idempotencyService;
     }
 
     /**
      * Đặt hàng: trừ kho ở product-service trước (ngoài transaction), sau đó mới ghi đơn.
      * Giỏ hàng có sản phẩm của nhiều cửa hàng sẽ được tách thành nhiều đơn.
-     * Nếu bước ghi đơn thất bại thì hoàn lại toàn bộ phần kho đã trừ.
+     * Nếu bước ghi đơn thất bại thì hoàn lại phần kho đã trừ.
      */
-    public List<OrderResponse> checkout(Long buyerId, CheckoutRequest request, String idempotencyKey) {
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Optional<List<Long>> alreadyCreated = idempotencyService.begin(buyerId, idempotencyKey);
-            if (alreadyCreated.isPresent()) {
-                // Yêu cầu này đã được xử lý trước đó, trả lại đúng các đơn đã tạo.
-                return toResponses(orderRepository.findAllByIdInOrderByIdDesc(alreadyCreated.get()));
-            }
-        }
-
+    public List<OrderResponse> checkout(Long buyerId, CheckoutRequest request) {
         List<CartItemResponse> cart = cartService.getCart(buyerId);
         if (cart.isEmpty()) {
-            releaseIdempotency(buyerId, idempotencyKey);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng đang trống");
         }
 
@@ -101,22 +89,11 @@ public class OrderService {
             }
             List<CustomerOrder> saved = orderWriteService.createOrders(buyerId, request, reserved);
             cartService.clearCart(buyerId);
-            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-                idempotencyService.complete(buyerId, idempotencyKey,
-                        saved.stream().map(CustomerOrder::getId).toList());
-            }
             return saved.stream().map(order -> toResponse(order, Set.of())).toList();
         } catch (RuntimeException exception) {
             // Đơn chưa được tạo nên phải hoàn lại phần kho đã trừ.
             releaseQuietly(reserved);
-            releaseIdempotency(buyerId, idempotencyKey);
             throw exception;
-        }
-    }
-
-    private void releaseIdempotency(Long buyerId, String idempotencyKey) {
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            idempotencyService.release(buyerId, idempotencyKey);
         }
     }
 

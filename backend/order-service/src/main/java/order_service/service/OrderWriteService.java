@@ -1,7 +1,5 @@
 package order_service.service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Ghi đơn hàng vào cơ sở dữ liệu. Tách riêng khỏi OrderService để việc gọi HTTP
- * sang product-service diễn ra ngoài transaction.
+ * Ghi đơn hàng vào cơ sở dữ liệu.
+ * Tách riêng khỏi OrderService để phần gọi HTTP sang product-service nằm ngoài transaction.
  */
 @Service
 public class OrderWriteService {
@@ -35,27 +33,16 @@ public class OrderWriteService {
     }
 
     /**
-     * Giỏ hàng có sản phẩm của nhiều cửa hàng thì được tách thành nhiều đơn,
-     * mỗi cửa hàng một đơn để người bán chỉ xử lý phần của mình.
-     * Mã giảm giá áp cho cả giỏ nên được chia theo tỉ lệ giá trị từng đơn.
+     * Giỏ hàng có sản phẩm của nhiều cửa hàng thì tách thành nhiều đơn, mỗi cửa hàng một đơn,
+     * để người bán chỉ xử lý phần hàng của mình. Mã giảm giá theo phần trăm nên áp cho từng đơn.
      */
     @Transactional
     public List<CustomerOrder> createOrders(Long buyerId, CheckoutRequest request,
             List<ReservedItem> reservedItems) {
-        Map<Long, List<ReservedItem>> itemsByStore = groupByStore(reservedItems);
-        BigDecimal cartTotal = reservedItems.stream()
-                .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        Voucher voucher = resolveVoucher(request.voucherCode(), cartTotal);
-        BigDecimal totalDiscount = voucher == null ? BigDecimal.ZERO
-                : cartTotal.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        Voucher voucher = findUsableVoucher(request.voucherCode(), totalOf(reservedItems));
 
         List<CustomerOrder> orders = new ArrayList<>();
-        BigDecimal allocated = BigDecimal.ZERO;
-        int index = 0;
-        for (Map.Entry<Long, List<ReservedItem>> entry : itemsByStore.entrySet()) {
+        for (Map.Entry<Long, List<ReservedItem>> entry : groupByStore(reservedItems).entrySet()) {
             CustomerOrder order = new CustomerOrder(buyerId, entry.getKey(), request.shippingAddress(),
                     request.paymentMethod());
             for (ReservedItem item : entry.getValue()) {
@@ -63,13 +50,7 @@ public class OrderWriteService {
                         item.unitPrice(), item.quantity()));
             }
             if (voucher != null) {
-                boolean isLast = ++index == itemsByStore.size();
-                // Đơn cuối nhận phần còn lại để tổng tiền giảm khớp tuyệt đối với mã giảm giá.
-                BigDecimal share = isLast ? totalDiscount.subtract(allocated)
-                        : totalDiscount.multiply(order.getTotalAmount())
-                                .divide(cartTotal, 2, RoundingMode.DOWN);
-                allocated = allocated.add(share);
-                order.applyDiscount(voucher.getCode(), share);
+                order.applyVoucher(voucher);
             }
             orders.add(order);
         }
@@ -79,7 +60,15 @@ public class OrderWriteService {
         return orderRepository.saveAll(orders);
     }
 
-    /** Giữ nguyên thứ tự cửa hàng theo thứ tự sản phẩm trong giỏ. */
+    private java.math.BigDecimal totalOf(List<ReservedItem> items) {
+        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+        for (ReservedItem item : items) {
+            total = total.add(item.unitPrice().multiply(java.math.BigDecimal.valueOf(item.quantity())));
+        }
+        return total;
+    }
+
+    /** Gom sản phẩm theo cửa hàng, giữ nguyên thứ tự trong giỏ hàng. */
     private Map<Long, List<ReservedItem>> groupByStore(List<ReservedItem> reservedItems) {
         Map<Long, List<ReservedItem>> grouped = new LinkedHashMap<>();
         for (ReservedItem item : reservedItems) {
@@ -88,7 +77,8 @@ public class OrderWriteService {
         return grouped;
     }
 
-    private Voucher resolveVoucher(String voucherCode, BigDecimal cartTotal) {
+    /** Trả về mã giảm giá nếu hợp lệ, trả về null nếu người mua không dùng mã. */
+    private Voucher findUsableVoucher(String voucherCode, java.math.BigDecimal cartTotal) {
         if (voucherCode == null || voucherCode.isBlank()) {
             return null;
         }

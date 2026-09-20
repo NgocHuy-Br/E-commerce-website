@@ -33,9 +33,6 @@ class AuthServiceRoleTest {
     @Mock
     private JwtService jwtService;
 
-    @Mock
-    private LoginAttemptService loginAttemptService;
-
     @InjectMocks
     private AuthService authService;
 
@@ -67,15 +64,15 @@ class AuthServiceRoleTest {
     }
 
     @Test
-    @DisplayName("Không thu quyền người bán trực tiếp vì cửa hàng sẽ không còn ai quản lý")
-    void cannotRemoveSellerRoleDirectly() {
+    @DisplayName("Bỏ quyền người bán thì tài khoản chỉ còn quyền mua hàng")
+    void removingSellerRoleKeepsBuyer() {
         Account account = account();
         account.addRole(Role.SELLER);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
 
-        assertThatThrownBy(() -> authService.updateRoles(1L, Set.of(Role.BUYER)))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("tạm ngưng cửa hàng");
+        AccountResponse response = authService.updateRoles(1L, Set.of(Role.BUYER));
+
+        assertThat(response.roles()).containsExactly(Role.BUYER);
     }
 
     @Test

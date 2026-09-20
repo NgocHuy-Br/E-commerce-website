@@ -5,10 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import order_service.dto.CartChange;
 import order_service.dto.CartItemRequest;
 import order_service.dto.CartItemResponse;
-import order_service.dto.CartRevalidationResponse;
 import order_service.service.ProductClient.ProductSnapshot;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -61,64 +59,6 @@ public class CartService {
         }
         List<CartItemResponse> cart = new ArrayList<>(getCart(userId));
         return saveItem(userId, cart, productId, quantity);
-    }
-
-    /**
-     * Đối chiếu giỏ hàng với dữ liệu hiện tại của product-service.
-     * Giá, tồn kho hoặc tình trạng bán có thể đã đổi từ lúc người mua thêm vào giỏ,
-     * nên cần đồng bộ lại và báo cho người mua trước khi đặt hàng.
-     */
-    public CartRevalidationResponse revalidate(Long userId) {
-        List<CartItemResponse> current = getCart(userId);
-        List<CartItemResponse> synced = new ArrayList<>();
-        List<CartChange> changes = new ArrayList<>();
-
-        for (CartItemResponse item : current) {
-            ProductSnapshot product;
-            try {
-                product = productClient.fetch(item.productId());
-            } catch (RuntimeException exception) {
-                changes.add(new CartChange(item.productId(), item.productName(), "REMOVED",
-                        item.unitPrice(), null, item.quantity(), 0,
-                        "Sản phẩm không còn tồn tại nên đã được bỏ khỏi giỏ hàng"));
-                continue;
-            }
-
-            if (!"ACTIVE".equals(product.status()) || product.hiddenByStore()) {
-                changes.add(new CartChange(item.productId(), item.productName(), "REMOVED",
-                        item.unitPrice(), null, item.quantity(), 0,
-                        "Sản phẩm đã ngừng bán nên đã được bỏ khỏi giỏ hàng"));
-                continue;
-            }
-
-            if (product.stockQuantity() < 1) {
-                changes.add(new CartChange(item.productId(), product.name(), "REMOVED",
-                        item.unitPrice(), product.sellingPrice(), item.quantity(), 0,
-                        "Sản phẩm đã hết hàng nên đã được bỏ khỏi giỏ hàng"));
-                continue;
-            }
-
-            int quantity = Math.min(item.quantity(), product.stockQuantity());
-            if (quantity != item.quantity()) {
-                changes.add(new CartChange(item.productId(), product.name(), "QUANTITY_REDUCED",
-                        item.unitPrice(), product.sellingPrice(), item.quantity(), quantity,
-                        "Chỉ còn " + product.stockQuantity() + " sản phẩm nên số lượng đã được giảm xuống"));
-            }
-            if (product.sellingPrice().compareTo(item.unitPrice()) != 0) {
-                changes.add(new CartChange(item.productId(), product.name(), "PRICE_CHANGED",
-                        item.unitPrice(), product.sellingPrice(), item.quantity(), quantity,
-                        "Giá đã thay đổi so với lúc bạn thêm vào giỏ hàng"));
-            }
-
-            synced.add(new CartItemResponse(product.id(), product.storeId(), product.name(),
-                    product.sellingPrice(), product.price(), product.discountPercent(), quantity,
-                    product.stockQuantity(), product.imageUrl()));
-        }
-
-        if (!changes.isEmpty()) {
-            saveCart(userId, synced);
-        }
-        return new CartRevalidationResponse(synced, changes);
     }
 
     public List<CartItemResponse> removeItem(Long userId, Long productId) {

@@ -15,7 +15,6 @@ import auth_service.entity.Role;
 import auth_service.repository.AccountRepository;
 import auth_service.security.JwtService;
 import auth_service.service.AuthService;
-import auth_service.service.LoginAttemptService;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,8 +36,6 @@ class AuthServiceApplicationTests {
 	@Mock
 	private JwtService jwtService;
 
-	@Mock
-	private LoginAttemptService loginAttemptService;
 
 	@InjectMocks
 	private AuthService authService;

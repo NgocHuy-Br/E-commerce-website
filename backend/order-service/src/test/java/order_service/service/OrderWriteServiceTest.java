@@ -86,8 +86,8 @@ class OrderWriteServiceTest {
     }
 
     @Test
-    @DisplayName("Mã giảm giá áp cho cả giỏ được chia theo tỉ lệ giá trị từng đơn")
-    void discountIsAllocatedProportionally() {
+    @DisplayName("Mã giảm 10% được áp cho từng đơn đã tách")
+    void discountAppliesToEachOrder() {
         echoSavedOrders();
         when(voucherRepository.findByCodeForUpdate("NHOM14"))
                 .thenReturn(Optional.of(voucher(10, "500000")));
@@ -97,30 +97,11 @@ class OrderWriteServiceTest {
 
         List<CustomerOrder> orders = orderWriteService.createOrders(1L, request("NHOM14"), items);
 
-        // Tổng giỏ 1.000.000, giảm 10% là 100.000; chia theo tỉ lệ 70% và 30%.
+        // Mỗi đơn được giảm 10% giá trị của chính nó.
         assertThat(orders.get(0).getDiscountAmount()).isEqualByComparingTo("70000");
         assertThat(orders.get(1).getDiscountAmount()).isEqualByComparingTo("30000");
         assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("630000");
         assertThat(orders.get(1).getTotalAmount()).isEqualByComparingTo("270000");
-    }
-
-    @Test
-    @DisplayName("Tổng tiền giảm của các đơn đã tách luôn khớp với mức giảm của cả giỏ")
-    void allocatedDiscountMatchesTotalDiscount() {
-        echoSavedOrders();
-        when(voucherRepository.findByCodeForUpdate("NHOM14"))
-                .thenReturn(Optional.of(voucher(15, "0")));
-        // Ba cửa hàng với giá trị lẻ để kiểm tra phần làm tròn.
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "A", new BigDecimal("333333"), 1),
-                new ReservedItem(2L, 20L, "B", new BigDecimal("333333"), 1),
-                new ReservedItem(3L, 30L, "C", new BigDecimal("333334"), 1));
-
-        List<CustomerOrder> orders = orderWriteService.createOrders(1L, request("NHOM14"), items);
-
-        BigDecimal allocated = orders.stream().map(CustomerOrder::getDiscountAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        assertThat(allocated).isEqualByComparingTo("150000.00");
     }
 
     @Test

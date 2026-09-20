@@ -27,17 +27,14 @@ public class AuthService {
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final LoginAttemptService loginAttemptService;
 
     public AuthService(
             AccountRepository accountRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService,
-            LoginAttemptService loginAttemptService) {
+            JwtService jwtService) {
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
-        this.loginAttemptService = loginAttemptService;
     }
 
     @Transactional
@@ -56,13 +53,11 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
-        loginAttemptService.ensureNotBlocked(email);
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Email hoặc mật khẩu không đúng"));
 
-        Account account = accountRepository.findByEmail(email).orElse(null);
-        boolean passwordMatches = account != null
-                && passwordEncoder.matches(request.password(), account.getPasswordHash());
-        if (account == null || !passwordMatches) {
-            loginAttemptService.recordFailure(email);
+        if (!passwordEncoder.matches(request.password(), account.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
         }
         if (account.getStatus() != AccountStatus.ACTIVE) {
@@ -70,7 +65,6 @@ public class AuthService {
                     "Tài khoản đã bị khoá, vui lòng liên hệ quản trị viên");
         }
 
-        loginAttemptService.recordSuccess(email);
         return toAuthResponse(account);
     }
 
@@ -109,13 +103,6 @@ public class AuthService {
     @Transactional
     public AccountResponse updateRoles(Long accountId, Set<Role> roles) {
         Account account = findAccount(accountId);
-        // Thu quyền người bán trực tiếp sẽ để lại cửa hàng và sản phẩm không ai quản lý.
-        // Muốn dừng hoạt động bán hàng thì tạm ngưng cửa hàng, khi đó sản phẩm cũng bị ẩn theo.
-        if (account.getRoles().contains(Role.SELLER) && !roles.contains(Role.SELLER)
-                && !roles.contains(Role.ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Không thu quyền người bán trực tiếp. Hãy tạm ngưng cửa hàng của tài khoản này");
-        }
         account.replaceRoles(normalizeRoles(roles));
         return toAccountResponse(account);
     }

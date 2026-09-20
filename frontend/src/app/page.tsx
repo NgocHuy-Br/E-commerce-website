@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import { ProductCatalog } from "./components/buyer/ProductCatalog";
-import { Card } from "./components/ui";
 
 export default function HomePage() {
   return (
@@ -11,9 +9,7 @@ export default function HomePage() {
           Tìm kiếm theo tên, danh mục, khoảng giá. Bấm vào sản phẩm để xem chi tiết và đánh giá.
         </p>
       </div>
-      <Suspense fallback={<Card>Đang tải sản phẩm...</Card>}>
-        <ProductCatalog />
-      </Suspense>
+      <ProductCatalog />
     </>
   );
 }

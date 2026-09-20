@@ -117,22 +117,6 @@ export type CartItem = {
   imageUrl: string | null;
 };
 
-export type CartChange = {
-  productId: number;
-  productName: string;
-  type: "PRICE_CHANGED" | "QUANTITY_REDUCED" | "REMOVED";
-  oldUnitPrice: number;
-  newUnitPrice: number | null;
-  oldQuantity: number;
-  newQuantity: number;
-  message: string;
-};
-
-export type CartRevalidation = {
-  items: CartItem[];
-  changes: CartChange[];
-};
-
 export type OrderItem = {
   productId: number;
   storeId: number;
@@ -140,15 +124,6 @@ export type OrderItem = {
   unitPrice: number;
   quantity: number;
   reviewed: boolean;
-};
-
-export type PageResponse<T> = {
-  items: T[];
-  page: number;
-  size: number;
-  totalItems: number;
-  totalPages: number;
-  hasNext: boolean;
 };
 
 export type Order = {

@@ -4,8 +4,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -41,11 +39,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
               and (:minPrice is null or product.price >= :minPrice)
               and (:maxPrice is null or product.price <= :maxPrice)
             """)
-    Page<Product> search(
+    List<Product> search(
             @Param("status") ProductStatus status,
             @Param("keyword") String keyword,
             @Param("categoryId") Long categoryId,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
-            Pageable pageable);
+            Sort sort);
 }

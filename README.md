@@ -80,12 +80,11 @@ Gọi nội bộ giữa các service:
 cd backend/<ten-service> && ./mvnw test
 ```
 
-41 test, chạy được toàn bộ: auth-service 10, product-service 12, order-service 16,
+34 test: auth-service 6, product-service 12, order-service 14,
 user-service/store-service/api-gateway mỗi service 1. Phần lớn là unit test với Mockito
 (không cần cơ sở dữ liệu), riêng `*ApplicationTests` cần MySQL đang chạy.
-Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khuyến mãi, tổng tiền và
-phân bổ giảm giá khi tách đơn nhiều cửa hàng, quy tắc mã giảm giá, quy tắc phân quyền
-(ADMIN loại trừ BUYER/SELLER) và giới hạn số lần đăng nhập sai.
+Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khuyến mãi, tổng tiền đơn hàng,
+tách đơn theo cửa hàng, quy tắc mã giảm giá và quy tắc phân quyền (ADMIN loại trừ BUYER/SELLER).
 
 ### Cơ chế đảm bảo dữ liệu đúng
 
@@ -95,9 +94,6 @@ phân bổ giảm giá khi tách đơn nhiều cửa hàng, quy tắc mã giảm
 - **Đặt hàng gọi HTTP ngoài transaction**: order-service trừ kho ở product-service trước,
   rồi mới mở transaction ghi đơn, và chỉ dọn giỏ hàng sau khi đơn lưu thành công.
   Nếu bước ghi đơn thất bại thì toàn bộ phần kho đã trừ được hoàn lại.
-- **Kiểm tra lại giỏ trước khi đặt**: `POST /api/orders/cart/revalidate` đối chiếu giá,
-  tồn kho và tình trạng bán với product-service, trả về danh sách thay đổi để người mua
-  xác nhận trước khi thanh toán.
 - **Huỷ đơn hoàn lại mã giảm giá**: lượt dùng của voucher được cộng lại khi đơn bị huỷ.
 - **Tạm ngưng cửa hàng là ẩn luôn sản phẩm**: store-service gọi
   `PUT /api/products/internal/store/{storeId}/visibility` nên sản phẩm của cửa hàng bị tạm ngưng
@@ -105,17 +101,10 @@ phân bổ giảm giá khi tách đơn nhiều cửa hàng, quy tắc mã giảm
 - **Timeout khi gọi liên service**: `spring.http.client.connect-timeout=3s`, `read-timeout=8s`.
 - **Giỏ hàng trong Redis có TTL 30 ngày**, không giữ dữ liệu rác vô hạn.
 - **Mã lỗi đúng ngữ nghĩa**: 401 khi chưa đăng nhập hoặc token hết hạn (frontend tự đăng xuất),
-  403 khi đã đăng nhập nhưng thiếu quyền, 409 khi tranh chấp dữ liệu hoặc trùng dữ liệu duy nhất,
-  429 khi đăng nhập sai quá nhiều lần.
+  403 khi đã đăng nhập nhưng thiếu quyền, 409 khi tranh chấp dữ liệu hoặc trùng dữ liệu duy nhất.
 - **Mỗi đơn hàng thuộc một cửa hàng**: giỏ hàng có sản phẩm của nhiều cửa hàng được tách thành
-  nhiều đơn khi thanh toán, mã giảm giá của cả giỏ được chia theo tỉ lệ giá trị từng đơn.
+  nhiều đơn khi thanh toán, mã giảm giá theo phần trăm được áp cho từng đơn.
   Nhờ vậy người bán chỉ thấy và chỉ xử lý được đơn của chính cửa hàng mình.
-- **Chống tạo trùng đơn**: client gửi header `Idempotency-Key`, order-service lưu kết quả lần
-  xử lý đầu trong Redis nên bấm đặt hàng hai lần chỉ tạo một bộ đơn.
-- **Chặn dò mật khẩu**: sai 5 lần trong 5 phút thì tạm khoá đăng nhập của email đó (429).
-  Bộ đếm lưu trong bộ nhớ tiến trình nên chỉ đúng khi chạy một bản auth-service.
-- **Không thu quyền người bán trực tiếp**: muốn dừng hoạt động bán hàng thì tạm ngưng cửa hàng,
-  tránh trường hợp cửa hàng và sản phẩm còn đó nhưng không ai quản lý được.
 - **Gateway chặn API nội bộ**: mọi đường dẫn chứa `/internal/` bị trả 404 ở gateway, chỉ service
   gọi trực tiếp cho nhau mới dùng được.
 - **API đánh giá công khai không trả mã người mua và mã đơn hàng.**
@@ -210,7 +199,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 ### product-service — `/api/products`
 | Method | Path | Quyền | Mô tả |
 |---|---|---|---|
-| GET | `/?keyword=&categoryId=&minPrice=&maxPrice=&sort=&page=&size=` | công khai | Tìm kiếm, lọc, sắp xếp, phân trang (mặc định 12, tối đa 48/trang) |
+| GET | `/?keyword=&categoryId=&minPrice=&maxPrice=&sort=` | công khai | Tìm kiếm, lọc, sắp xếp |
 | GET | `/{id}` | công khai | Chi tiết (kèm giá sau khuyến mãi) |
 | GET | `/categories` | công khai | Danh mục |
 | GET | `/{id}/promotions` | công khai | Khuyến mãi của sản phẩm |
@@ -247,9 +236,8 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 | GET | `/cart` | đã đăng nhập | Xem giỏ |
 | POST | `/cart/items` | đã đăng nhập | Thêm vào giỏ (`productId`, `quantity`) |
 | PUT | `/cart/items/{productId}?quantity=` | đã đăng nhập | Đổi số lượng (0 = xoá) |
-| POST | `/cart/revalidate` | BUYER | Đối chiếu giá/tồn kho, trả về danh sách thay đổi |
 | DELETE | `/cart/items/{productId}`, `/cart` | đã đăng nhập | Xoá dòng / xoá giỏ |
-| POST | `/checkout` | BUYER | Đặt hàng; trả về danh sách đơn (tách theo cửa hàng), nhận header `Idempotency-Key` |
+| POST | `/checkout` | BUYER | Đặt hàng; trả về danh sách đơn (tách theo cửa hàng) |
 | GET | `/mine` | đã đăng nhập | Đơn của tôi |
 | PUT | `/{id}/pay` | BUYER | Thanh toán, body `{ "paymentMethod": "COD\|BANK_TRANSFER\|MOMO\|CREDIT_CARD" }` |
 | PUT | `/{id}/cancel` | BUYER | Huỷ đơn, hoàn kho |
@@ -271,9 +259,11 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 - Trừ kho, hoàn kho và bù trừ khi đặt hàng lỗi đều gọi HTTP đồng bộ (best-effort), chưa dùng saga/message queue.
 - Khoá tài khoản và đổi quyền chỉ có hiệu lực hoàn toàn khi token cũ hết hạn (8 giờ) vì quyền nằm
   trong JWT; muốn thu hồi tức thì cần danh sách token bị chặn hoặc gateway gọi introspect.
-- Giới hạn đăng nhập sai theo email nên người khác có thể cố tình làm khoá tạm một email;
-  hệ thống thật thường kết hợp thêm giới hạn theo IP và CAPTCHA.
-- Đơn hàng và danh sách tài khoản chưa phân trang (đã phân trang cho tìm kiếm sản phẩm).
+- Chưa giới hạn số lần đăng nhập sai (hệ thống thật cần chặn dò mật khẩu).
+- Chưa phân trang cho danh sách sản phẩm, đơn hàng và tài khoản.
+- Giá trong giỏ hàng là giá lúc thêm vào giỏ; giá chốt đơn được tính lại khi đặt hàng nên hai
+  con số có thể lệch nhau nếu người bán vừa đổi giá.
+- Bấm đặt hàng hai lần liên tiếp có thể tạo hai đơn.
 - Người mua vẫn tự bấm xác nhận đã thanh toán đơn COD (mô phỏng, chưa nối cổng thanh toán thật).
 - Mỗi cửa hàng chỉ có một đơn hàng gộp: đơn nhiều shop chưa được tách theo shop.
 - Chưa có unit/integration test (chỉ có test `contextLoads` mặc định).
