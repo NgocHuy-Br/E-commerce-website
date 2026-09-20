@@ -106,6 +106,24 @@ Một số trường hợp quan trọng được kiểm tra:
 - Tạm ngưng cửa hàng thì ẩn toàn bộ sản phẩm; cửa hàng bị từ chối sửa lại thì về chờ duyệt.
 - Các ràng buộc dữ liệu nhập (số điện thoại, tên, giá, mã giảm giá) đúng như bảng bên dưới.
 
+### Bộ test case cho kiểm thử thủ công và tự động
+
+Test case của từng service nằm trong `docs/testcases/`, mỗi service một file:
+
+| File | Test case API | Test case giao diện |
+|---|---|---|
+| `docs/testcases/auth-service.md` | 24 | 8 |
+| `docs/testcases/user-service.md` | 20 | 7 |
+| `docs/testcases/product-service.md` | 52 | 10 |
+| `docs/testcases/store-service.md` | 21 | 6 |
+| `docs/testcases/order-service.md` | 65 | 15 |
+| `docs/testcases/api-gateway.md` | 8 | 0 |
+
+Tổng 236 test case. Mỗi test case có mã (ví dụ `ORDER-37`), mục đích, API hoặc thao tác,
+dữ liệu vào, kết quả mong đợi, mã HTTP, mức ưu tiên và cột "Tự động hoá" cho biết
+trường hợp đó đã có unit test hay cần kiểm tra bằng script/thủ công.
+Xem [docs/testcases/README.md](docs/testcases/README.md) để biết cách chuẩn bị môi trường và tài khoản test.
+
 ### Kiểm tra dữ liệu nhập (validation)
 
 Backend kiểm tra bằng Bean Validation trên các DTO, frontend kiểm tra lại để báo lỗi ngay
