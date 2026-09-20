@@ -70,31 +70,47 @@ public class OrderService {
     }
 
     /**
-     * Đặt hàng: trừ kho ở product-service trước (ngoài transaction), sau đó mới ghi đơn.
-     * Giỏ hàng có sản phẩm của nhiều cửa hàng sẽ được tách thành nhiều đơn.
-     * Nếu bước ghi đơn thất bại thì hoàn lại phần kho đã trừ.
+     * Đặt hàng gồm bốn bước:
+     * 1. Lấy giỏ hàng của người mua từ Redis.
+     * 2. Gọi product-service trừ kho từng sản phẩm, đồng thời lấy giá chốt đơn.
+     * 3. Ghi đơn hàng vào cơ sở dữ liệu (giỏ nhiều cửa hàng thì tách thành nhiều đơn).
+     * 4. Xoá giỏ hàng.
+     * Nếu bước 3 thất bại thì phần kho đã trừ ở bước 2 được hoàn lại.
      */
     public List<OrderResponse> checkout(Long buyerId, CheckoutRequest request) {
+        // Bước 1
         List<CartItemResponse> cart = cartService.getCart(buyerId);
         if (cart.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng đang trống");
         }
 
-        List<ReservedItem> reserved = new ArrayList<>();
+        List<ReservedItem> reservedItems = new ArrayList<>();
         try {
+            // Bước 2
             for (CartItemResponse item : cart) {
-                ProductClient.ProductSnapshot product = productClient.reserve(item.productId(), item.quantity());
-                reserved.add(new ReservedItem(product.id(), product.storeId(), product.name(),
-                        product.sellingPrice(), item.quantity()));
+                reservedItems.add(reserveStock(item));
             }
-            List<CustomerOrder> saved = orderWriteService.createOrders(buyerId, request, reserved);
+            // Bước 3
+            List<CustomerOrder> orders = orderWriteService.createOrders(buyerId, request, reservedItems);
+            // Bước 4
             cartService.clearCart(buyerId);
-            return saved.stream().map(order -> toResponse(order, Set.of())).toList();
+            return orders.stream().map(this::toNewOrderResponse).toList();
         } catch (RuntimeException exception) {
-            // Đơn chưa được tạo nên phải hoàn lại phần kho đã trừ.
-            releaseQuietly(reserved);
+            returnReservedStock(reservedItems);
             throw exception;
         }
+    }
+
+    /** Trừ kho một sản phẩm và lấy về giá chốt đơn do product-service quyết định. */
+    private ReservedItem reserveStock(CartItemResponse cartItem) {
+        ProductClient.ProductSnapshot product = productClient.reserve(cartItem.productId(), cartItem.quantity());
+        return new ReservedItem(product.id(), product.storeId(), product.name(), product.sellingPrice(),
+                cartItem.quantity());
+    }
+
+    /** Đơn vừa tạo nên chưa có sản phẩm nào được đánh giá. */
+    private OrderResponse toNewOrderResponse(CustomerOrder order) {
+        return toResponse(order, Set.of());
     }
 
     @Transactional(readOnly = true)
@@ -194,8 +210,11 @@ public class OrderService {
         }
     }
 
-    /** Hoàn kho best-effort khi đặt hàng thất bại giữa chừng. */
-    private void releaseQuietly(List<ReservedItem> items) {
+    /**
+     * Hoàn lại kho khi đặt hàng thất bại. Nếu việc hoàn kho cũng lỗi thì chỉ ghi log,
+     * vì lúc này việc quan trọng hơn là trả lỗi đặt hàng về cho người mua.
+     */
+    private void returnReservedStock(List<ReservedItem> items) {
         for (ReservedItem item : items) {
             try {
                 productClient.release(item.productId(), item.quantity());
