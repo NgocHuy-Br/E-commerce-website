@@ -23,6 +23,11 @@ public class Voucher {
     @Column(nullable = false)
     private Instant endsAt;
 
+    /** Khoá lạc quan, chặn hai đơn cùng lúc dùng chung lượt cuối của mã. */
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     protected Voucher() {
     }
 
@@ -68,5 +73,10 @@ public class Voucher {
         if (remainingUses < 1)
             throw new IllegalStateException("Voucher has no remaining uses");
         remainingUses--;
+    }
+
+    /** Hoàn lại lượt dùng khi đơn hàng áp mã này bị huỷ. */
+    public void restore() {
+        remainingUses++;
     }
 }

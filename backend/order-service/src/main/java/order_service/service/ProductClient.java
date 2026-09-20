@@ -58,7 +58,7 @@ public class ProductClient {
     }
 
     public record ProductSnapshot(Long id, Long storeId, String name, BigDecimal price, int discountPercent,
-            BigDecimal effectivePrice, int stockQuantity, String imageUrl, String status) {
+            BigDecimal effectivePrice, int stockQuantity, String imageUrl, String status, boolean hiddenByStore) {
 
         public BigDecimal sellingPrice() {
             return effectivePrice == null ? price : effectivePrice;

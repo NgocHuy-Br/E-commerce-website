@@ -180,6 +180,9 @@ export function CatalogModeration() {
                     >
                       {product.status}
                     </Badge>
+                    {product.hiddenByStore && (
+                      <Badge tone="danger">Cửa hàng tạm ngưng</Badge>
+                    )}
                   </p>
                   <p className="text-slate-600">
                     Shop #{product.storeId} · {product.categoryName} ·{" "}

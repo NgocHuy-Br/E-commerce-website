@@ -53,7 +53,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ProductResponse getVisible(Long productId) {
         Product product = findProduct(productId);
-        if (product.getStatus() == ProductStatus.HIDDEN) {
+        if (product.getStatus() == ProductStatus.HIDDEN || product.isHiddenByStore()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
         }
         return toResponse(product);
@@ -102,6 +102,10 @@ public class ProductService {
     @Transactional
     public ProductResponse updateVisibility(Long productId, Long sellerId, boolean visible) {
         Product product = findOwnedProduct(productId, sellerId);
+        if (visible && product.isHiddenByStore()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cửa hàng của bạn đang bị tạm ngưng nên chưa thể mở bán lại sản phẩm");
+        }
         product.setStatus(visible ? (product.getStockQuantity() > 0 ? ProductStatus.ACTIVE : ProductStatus.OUT_OF_STOCK)
                 : ProductStatus.HIDDEN);
         return toResponse(product);
@@ -119,14 +123,26 @@ public class ProductService {
         if (quantity < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng phải lớn hơn 0");
         }
-        Product product = findProduct(productId);
+        // Khoá dòng sản phẩm để hai người mua cùng lúc không trừ kho trên cùng một giá trị cũ.
+        Product product = productRepository.findByIdForUpdate(productId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm"));
         try {
             product.decreaseStock(quantity);
         } catch (IllegalStateException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Sản phẩm \"" + product.getName() + "\" không còn đủ hàng");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, unavailableMessage(product, exception));
         }
         return toResponse(product);
+    }
+
+    /** Phân biệt sản phẩm hết hàng với sản phẩm đã ngừng bán để thông báo đúng. */
+    private String unavailableMessage(Product product, IllegalStateException exception) {
+        if ("OUT_OF_STOCK".equals(exception.getMessage())) {
+            return "Sản phẩm \"" + product.getName() + "\" chỉ còn " + product.getStockQuantity() + " sản phẩm";
+        }
+        if (product.isHiddenByStore()) {
+            return "Cửa hàng bán sản phẩm \"" + product.getName() + "\" đang tạm ngưng hoạt động";
+        }
+        return "Sản phẩm \"" + product.getName() + "\" đã ngừng bán";
     }
 
     /** Hoàn kho khi đơn hàng bị huỷ. */
@@ -135,9 +151,21 @@ public class ProductService {
         if (quantity < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng phải lớn hơn 0");
         }
-        Product product = findProduct(productId);
+        Product product = productRepository.findByIdForUpdate(productId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm"));
         product.increaseStock(quantity);
         return toResponse(product);
+    }
+
+    /**
+     * Ẩn hoặc mở lại toàn bộ sản phẩm của một cửa hàng.
+     * Dùng khi quản trị viên tạm ngưng, từ chối hoặc duyệt lại cửa hàng đó.
+     */
+    @Transactional
+    public int setStoreVisibility(Long storeId, boolean visible) {
+        List<Product> products = productRepository.findAllByStoreId(storeId);
+        products.forEach(product -> product.setHiddenByStore(!visible));
+        return products.size();
     }
 
     @Transactional(readOnly = true)
@@ -220,7 +248,7 @@ public class ProductService {
                 product.getCategory().getId(), product.getCategory().getName(),
                 product.getName(), product.getDescription(), product.getPrice(), discountPercent,
                 PricingService.effectivePrice(product.getPrice(), discountPercent),
-                product.getStockQuantity(), product.getImageUrl(), product.getStatus());
+                product.getStockQuantity(), product.getImageUrl(), product.getStatus(), product.isHiddenByStore());
     }
 
     private PromotionResponse toPromotionResponse(Promotion promotion) {

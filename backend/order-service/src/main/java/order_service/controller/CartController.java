@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import order_service.dto.CartItemRequest;
 import order_service.dto.CartItemResponse;
+import order_service.dto.CartRevalidationResponse;
 import order_service.security.AuthPrincipal;
 import order_service.service.CartService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -45,6 +46,12 @@ public class CartController {
     public List<CartItemResponse> setQuantity(@AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable Long productId, @RequestParam int quantity) {
         return cartService.setQuantity(principal.userId(), productId, quantity);
+    }
+
+    /** Đối chiếu giỏ hàng với giá và tồn kho hiện tại, trả về danh sách thay đổi (nếu có). */
+    @PostMapping("/revalidate")
+    public CartRevalidationResponse revalidate(@AuthenticationPrincipal AuthPrincipal principal) {
+        return cartService.revalidate(principal.userId());
     }
 
     @DeleteMapping("/items/{productId}")

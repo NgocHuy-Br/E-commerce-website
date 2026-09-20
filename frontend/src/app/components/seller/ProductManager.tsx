@@ -251,6 +251,9 @@ export function ProductManager({ store }: { store: Store | null }) {
                     {product.discountPercent > 0 && (
                       <Badge tone="danger">-{product.discountPercent}%</Badge>
                     )}
+                    {product.hiddenByStore && (
+                      <Badge tone="danger">Cửa hàng bị tạm ngưng</Badge>
+                    )}
                   </p>
                   <p className="text-slate-600">
                     {formatCurrency(product.effectivePrice)} · tồn{" "}

@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 
 @Entity
@@ -48,6 +49,15 @@ public class Product {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProductStatus status;
+
+    /** Bị ẩn vì cửa hàng đang tạm ngưng hoặc bị từ chối, khác với việc người bán tự ẩn. */
+    @Column(nullable = false)
+    private boolean hiddenByStore;
+
+    /** Khoá lạc quan, chặn hai giao dịch cùng sửa một sản phẩm. */
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     protected Product() {
     }
@@ -105,6 +115,23 @@ public class Product {
         return status;
     }
 
+    public boolean isHiddenByStore() {
+        return hiddenByStore;
+    }
+
+    /** Sản phẩm chỉ được bán khi vừa đang mở bán vừa thuộc cửa hàng còn hoạt động. */
+    public boolean isPurchasable() {
+        return status == ProductStatus.ACTIVE && !hiddenByStore;
+    }
+
+    public void setHiddenByStore(boolean hiddenByStore) {
+        this.hiddenByStore = hiddenByStore;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
     public void update(Category category, String name, String description, BigDecimal price, int stockQuantity,
             String imageUrl) {
         this.category = category;
@@ -130,8 +157,11 @@ public class Product {
     }
 
     public void decreaseStock(int quantity) {
-        if (status != ProductStatus.ACTIVE || quantity > stockQuantity) {
-            throw new IllegalStateException("Product is unavailable");
+        if (!isPurchasable()) {
+            throw new IllegalStateException("NOT_ON_SALE");
+        }
+        if (quantity > stockQuantity) {
+            throw new IllegalStateException("OUT_OF_STOCK");
         }
         stockQuantity -= quantity;
         if (stockQuantity == 0) {

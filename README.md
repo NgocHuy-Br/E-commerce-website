@@ -74,6 +74,26 @@ Gọi nội bộ giữa các service:
 - Huỷ đơn khi shop chưa giao: có popup xác nhận, báo trước việc hoàn tiền về tài khoản ngân hàng trong 1-3 ngày làm việc, hàng được hoàn kho.
 - Đánh sao 1–5 và nhận xét sau khi đơn ở trạng thái `DELIVERED`, mỗi sản phẩm một lần trên mỗi đơn.
 
+### Cơ chế đảm bảo dữ liệu đúng
+
+- **Chống bán vượt tồn kho**: khi trừ hoặc hoàn kho, product-service khoá dòng sản phẩm
+  (`PESSIMISTIC_WRITE`) nên nhiều đơn hàng cùng lúc không đọc chung một giá trị tồn cũ.
+  Sản phẩm và mã giảm giá còn có `@Version` (khoá lạc quan) cho các đường ghi khác.
+- **Đặt hàng gọi HTTP ngoài transaction**: order-service trừ kho ở product-service trước,
+  rồi mới mở transaction ghi đơn, và chỉ dọn giỏ hàng sau khi đơn lưu thành công.
+  Nếu bước ghi đơn thất bại thì toàn bộ phần kho đã trừ được hoàn lại.
+- **Kiểm tra lại giỏ trước khi đặt**: `POST /api/orders/cart/revalidate` đối chiếu giá,
+  tồn kho và tình trạng bán với product-service, trả về danh sách thay đổi để người mua
+  xác nhận trước khi thanh toán.
+- **Huỷ đơn hoàn lại mã giảm giá**: lượt dùng của voucher được cộng lại khi đơn bị huỷ.
+- **Tạm ngưng cửa hàng là ẩn luôn sản phẩm**: store-service gọi
+  `PUT /api/products/internal/store/{storeId}/visibility` nên sản phẩm của cửa hàng bị tạm ngưng
+  hoặc từ chối biến khỏi sàn ngay, được duyệt lại thì mở bán lại.
+- **Timeout khi gọi liên service**: `spring.http.client.connect-timeout=3s`, `read-timeout=8s`.
+- **Giỏ hàng trong Redis có TTL 30 ngày**, không giữ dữ liệu rác vô hạn.
+- **Mã lỗi đúng ngữ nghĩa**: 401 khi chưa đăng nhập hoặc token hết hạn (frontend tự đăng xuất),
+  403 khi đã đăng nhập nhưng thiếu quyền, 409 khi tranh chấp dữ liệu hoặc trùng dữ liệu duy nhất.
+
 ### Quy tắc nghiệp vụ đáng chú ý
 - Giá chốt đơn là giá sau khuyến mãi đang hiệu lực, do product-service trả về khi trừ kho — client không thể tự gửi giá.
 - Huỷ đơn sẽ hoàn kho và chuyển thanh toán đã trả sang `REFUNDED`.
@@ -182,6 +202,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 | GET | `/admin/statistics` | ADMIN | Thống kê catalog |
 | PUT | `/internal/{id}/reserve?quantity=` | `X-Internal-Key` | Trừ kho |
 | PUT | `/internal/{id}/release?quantity=` | `X-Internal-Key` | Hoàn kho |
+| PUT | `/internal/store/{storeId}/visibility?visible=` | `X-Internal-Key` | Ẩn/mở toàn bộ sản phẩm của một cửa hàng |
 
 ### store-service — `/api/stores`
 | Method | Path | Quyền |
@@ -200,6 +221,7 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 | GET | `/cart` | đã đăng nhập | Xem giỏ |
 | POST | `/cart/items` | đã đăng nhập | Thêm vào giỏ (`productId`, `quantity`) |
 | PUT | `/cart/items/{productId}?quantity=` | đã đăng nhập | Đổi số lượng (0 = xoá) |
+| POST | `/cart/revalidate` | BUYER | Đối chiếu giá/tồn kho, trả về danh sách thay đổi |
 | DELETE | `/cart/items/{productId}`, `/cart` | đã đăng nhập | Xoá dòng / xoá giỏ |
 | POST | `/checkout` | BUYER | Đặt hàng |
 | GET | `/mine` | đã đăng nhập | Đơn của tôi |
@@ -221,6 +243,8 @@ INSERT INTO account_roles (account_id, role) VALUES (1, 'ADMIN');
 - Lớp bảo mật JWT bị lặp ở 5 service (chưa tách thành module dùng chung).
 - Endpoint `/api/products/internal/**` chỉ được bảo vệ bằng `X-Internal-Key`; nên chặn thêm ở tầng mạng/gateway khi triển khai thật.
 - Trừ kho, hoàn kho và bù trừ khi đặt hàng lỗi đều gọi HTTP đồng bộ (best-effort), chưa dùng saga/message queue.
-- Giá trong giỏ hàng được cập nhật khi thêm/sửa số lượng, không tự đổi khi khuyến mãi thay đổi; giá chốt đơn tính lại lúc thanh toán.
+- Đơn nhiều cửa hàng vẫn gộp thành một đơn, nên người bán thấy cả đơn có sản phẩm của shop khác.
+- Khoá tài khoản chỉ có hiệu lực khi token hết hạn (tối đa 24 giờ) vì quyền nằm trong JWT.
+- Chưa có phân trang; thống kê của quản trị viên nạp toàn bộ đơn hàng vào bộ nhớ.
 - Mỗi cửa hàng chỉ có một đơn hàng gộp: đơn nhiều shop chưa được tách theo shop.
 - Chưa có unit/integration test (chỉ có test `contextLoads` mặc định).

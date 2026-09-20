@@ -13,6 +13,10 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  http:
+    client:
+      connect-timeout: 3s
+      read-timeout: 8s
   data:
     redis:
       host: ${REDIS_HOST:localhost}

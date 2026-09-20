@@ -1,3 +1,5 @@
+import { expireSession } from "./session";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
@@ -57,6 +59,14 @@ export async function api<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
+  if (response.status === 401 && token) {
+    // Token hết hạn hoặc không còn hợp lệ: xoá phiên để giao diện trở về trạng thái chưa đăng nhập.
+    expireSession();
+    throw new ApiError(
+      401,
+      "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.",
+    );
+  }
   if (!response.ok) {
     throw new ApiError(response.status, await readError(response));
   }

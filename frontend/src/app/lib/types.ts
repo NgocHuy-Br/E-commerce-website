@@ -66,6 +66,7 @@ export type Product = {
   stockQuantity: number;
   imageUrl: string | null;
   status: ProductStatus;
+  hiddenByStore: boolean;
 };
 
 export type Promotion = {
@@ -114,6 +115,22 @@ export type CartItem = {
   quantity: number;
   stockQuantity: number;
   imageUrl: string | null;
+};
+
+export type CartChange = {
+  productId: number;
+  productName: string;
+  type: "PRICE_CHANGED" | "QUANTITY_REDUCED" | "REMOVED";
+  oldUnitPrice: number;
+  newUnitPrice: number | null;
+  oldQuantity: number;
+  newQuantity: number;
+  message: string;
+};
+
+export type CartRevalidation = {
+  items: CartItem[];
+  changes: CartChange[];
 };
 
 export type OrderItem = {

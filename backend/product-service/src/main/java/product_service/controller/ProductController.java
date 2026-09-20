@@ -140,6 +140,15 @@ public class ProductController {
         return productService.releaseStock(productId, quantity);
     }
 
+    /** Quản trị viên tạm ngưng hoặc duyệt lại cửa hàng thì ẩn/mở toàn bộ sản phẩm của cửa hàng đó. */
+    @PutMapping("/internal/store/{storeId}/visibility")
+    public java.util.Map<String, Object> setStoreVisibility(@PathVariable Long storeId,
+            @RequestParam boolean visible, @RequestHeader("X-Internal-Key") String requestKey) {
+        verifyInternalKey(requestKey);
+        int affected = productService.setStoreVisibility(storeId, visible);
+        return java.util.Map.of("storeId", storeId, "visible", visible, "affectedProducts", affected);
+    }
+
     @GetMapping("/{productId}/promotions")
     public List<PromotionResponse> getPromotions(@PathVariable Long productId) {
         return productService.getPromotions(productId);

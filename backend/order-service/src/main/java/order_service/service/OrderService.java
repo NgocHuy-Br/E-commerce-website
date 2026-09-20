@@ -12,6 +12,7 @@ import order_service.dto.CheckoutRequest;
 import order_service.dto.OrderItemResponse;
 import order_service.dto.OrderResponse;
 import order_service.dto.PlatformOrderStatsResponse;
+import order_service.dto.ReservedItem;
 import order_service.entity.CustomerOrder;
 import order_service.entity.OrderItem;
 import order_service.entity.OrderStatus;
@@ -54,40 +55,46 @@ public class OrderService {
     private final StoreClient storeClient;
     private final VoucherRepository voucherRepository;
     private final ReviewRepository reviewRepository;
+    private final OrderWriteService orderWriteService;
 
     public OrderService(CartService cartService, CustomerOrderRepository orderRepository, ProductClient productClient,
-            StoreClient storeClient, VoucherRepository voucherRepository, ReviewRepository reviewRepository) {
+            StoreClient storeClient, VoucherRepository voucherRepository, ReviewRepository reviewRepository,
+            OrderWriteService orderWriteService) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.storeClient = storeClient;
         this.voucherRepository = voucherRepository;
         this.reviewRepository = reviewRepository;
+        this.orderWriteService = orderWriteService;
     }
 
-    @Transactional
+    /**
+     * Đặt hàng: trừ kho ở product-service trước (ngoài transaction), sau đó mới ghi đơn.
+     * Nếu bước ghi đơn thất bại thì hoàn lại toàn bộ phần kho đã trừ.
+     * Giỏ hàng chỉ được dọn sau khi đơn đã lưu thành công.
+     */
     public OrderResponse checkout(Long buyerId, CheckoutRequest request) {
         List<CartItemResponse> cart = cartService.getCart(buyerId);
-        if (cart.isEmpty())
+        if (cart.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng đang trống");
-        CustomerOrder order = new CustomerOrder(buyerId, request.shippingAddress(), request.paymentMethod());
-        List<CartItemResponse> reserved = new ArrayList<>();
+        }
+
+        List<ReservedItem> reserved = new ArrayList<>();
         try {
             for (CartItemResponse item : cart) {
                 ProductClient.ProductSnapshot product = productClient.reserve(item.productId(), item.quantity());
-                reserved.add(item);
-                order.addItem(new OrderItem(order, product.id(), product.storeId(), product.name(),
+                reserved.add(new ReservedItem(product.id(), product.storeId(), product.name(),
                         product.sellingPrice(), item.quantity()));
             }
-            applyVoucher(order, request.voucherCode());
+            CustomerOrder saved = orderWriteService.createOrder(buyerId, request, reserved);
+            cartService.clearCart(buyerId);
+            return toResponse(saved, Set.of());
         } catch (RuntimeException exception) {
-            // Đơn không được tạo nên phải hoàn lại phần kho đã trừ của các sản phẩm trước đó.
+            // Đơn chưa được tạo nên phải hoàn lại phần kho đã trừ.
             releaseQuietly(reserved);
             throw exception;
         }
-        CustomerOrder saved = orderRepository.save(order);
-        cartService.clearCart(buyerId);
-        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -186,6 +193,7 @@ public class OrderService {
         order.setStatus(status);
         if (status == OrderStatus.CANCELLED) {
             order.getItems().forEach(item -> productClient.release(item.getProductId(), item.getQuantity()));
+            restoreVoucher(order);
             if (order.getPaymentStatus() == PaymentStatus.PAID) {
                 order.setPaymentStatus(PaymentStatus.REFUNDED);
             }
@@ -193,8 +201,8 @@ public class OrderService {
     }
 
     /** Hoàn kho best-effort khi đặt hàng thất bại giữa chừng. */
-    private void releaseQuietly(List<CartItemResponse> items) {
-        for (CartItemResponse item : items) {
+    private void releaseQuietly(List<ReservedItem> items) {
+        for (ReservedItem item : items) {
             try {
                 productClient.release(item.productId(), item.quantity());
             } catch (RuntimeException exception) {
@@ -202,6 +210,17 @@ public class OrderService {
                         exception);
             }
         }
+    }
+
+    /** Đơn bị huỷ thì mã giảm giá đã dùng phải được trả lại một lượt. */
+    private void restoreVoucher(CustomerOrder order) {
+        if (order.getVoucherCode() == null || order.getVoucherCode().isBlank()) {
+            return;
+        }
+        voucherRepository.findByCodeForUpdate(order.getVoucherCode())
+                .ifPresentOrElse(Voucher::restore,
+                        () -> log.warn("Không tìm thấy mã {} để hoàn lượt dùng cho đơn {}",
+                                order.getVoucherCode(), order.getId()));
     }
 
     /** Thông báo rõ lý do khi đơn không còn huỷ được (áp dụng cho cả người mua, người bán và admin). */
@@ -256,20 +275,4 @@ public class OrderService {
                 order.getStatus(), order.getCreatedAt(), items);
     }
 
-    private void applyVoucher(CustomerOrder order, String voucherCode) {
-        if (voucherCode == null || voucherCode.isBlank())
-            return;
-        Voucher voucher = voucherRepository.findByCodeIgnoreCase(voucherCode.trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy mã giảm giá"));
-        Instant now = Instant.now();
-        if (voucher.getRemainingUses() < 1 || now.isBefore(voucher.getStartsAt()) || now.isAfter(voucher.getEndsAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết hạn hoặc hết lượt dùng");
-        }
-        if (order.getTotalAmount().compareTo(voucher.getMinimumOrderAmount()) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng chưa đạt giá trị tối thiểu để dùng mã này");
-        }
-        voucher.use();
-        order.applyVoucher(voucher);
-    }
 }

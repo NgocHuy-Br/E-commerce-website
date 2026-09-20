@@ -22,13 +22,21 @@ import { PAYMENT_METHODS } from "../lib/payment";
 import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
 import { useNotify } from "../lib/toast";
-import type { Address, Order, PaymentMethod, Voucher } from "../lib/types";
+import type {
+  Address,
+  CartChange,
+  CartRevalidation,
+  Order,
+  PaymentMethod,
+  Voucher,
+} from "../lib/types";
 
 export default function CartPage() {
   const { token, isAdmin } = useSession();
   const notify = useNotify();
   const router = useRouter();
-  const { items, subtotal, setQuantity, removeItem, clear } = useCart();
+  const { items, subtotal, setQuantity, removeItem, clear, refresh } =
+    useCart();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -37,8 +45,25 @@ export default function CartPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const [voucherCode, setVoucherCode] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [changes, setChanges] = useState<CartChange[]>([]);
 
   const load = useCallback(async () => {
+    // Mở trang giỏ hàng thì đối chiếu lại giá và tồn kho với product-service.
+    if (token) {
+      const result = await api<CartRevalidation>(
+        "/api/orders/cart/revalidate",
+        {
+          method: "POST",
+          token,
+        },
+      ).catch(() => null);
+      if (result) {
+        setChanges(result.changes);
+        if (result.changes.length > 0) {
+          await refresh();
+        }
+      }
+    }
     const [voucherData, addressData] = await Promise.all([
       api<Voucher[]>("/api/orders/vouchers/active").catch(
         () => [] as Voucher[],
@@ -51,7 +76,7 @@ export default function CartPage() {
     ]);
     setVouchers(voucherData);
     setAddresses(addressData);
-  }, [token]);
+  }, [token, refresh]);
 
   useLoadEffect(load);
 
@@ -106,6 +131,21 @@ export default function CartPage() {
     }
     setPlacing(true);
     try {
+      // Kiểm tra lại lần cuối: nếu giá hoặc tồn kho vừa đổi thì dừng để người mua xem lại.
+      const check = await api<CartRevalidation>("/api/orders/cart/revalidate", {
+        method: "POST",
+        token,
+      });
+      if (check.changes.length > 0) {
+        setChanges(check.changes);
+        await refresh();
+        notify(
+          "Giỏ hàng vừa có thay đổi, vui lòng kiểm tra lại trước khi đặt hàng.",
+          "error",
+        );
+        return;
+      }
+      setChanges([]);
       const order = await api<Order>("/api/orders/checkout", {
         method: "POST",
         token,
@@ -131,6 +171,36 @@ export default function CartPage() {
         title="Giỏ hàng"
         description={`${items.length} sản phẩm trong giỏ`}
       />
+
+      {changes.length > 0 && (
+        <div className="mb-5 border border-amber-400 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">
+            Giỏ hàng của bạn vừa được cập nhật lại theo giá và tồn kho hiện tại:
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            {changes.map((change) => (
+              <li key={`${change.productId}-${change.type}`}>
+                <b>{change.productName}</b>: {change.message}
+                {change.type === "PRICE_CHANGED" &&
+                  change.newUnitPrice !== null && (
+                    <>
+                      {" "}
+                      ({formatCurrency(change.oldUnitPrice)} →{" "}
+                      {formatCurrency(change.newUnitPrice)})
+                    </>
+                  )}
+              </li>
+            ))}
+          </ul>
+          <Button
+            variant="ghost"
+            className="mt-3"
+            onClick={() => setChanges([])}
+          >
+            Tôi đã xem
+          </Button>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <Card>

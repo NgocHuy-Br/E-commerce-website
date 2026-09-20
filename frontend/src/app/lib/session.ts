@@ -38,6 +38,23 @@ function getServerSnapshot(): string | null {
   return null;
 }
 
+/**
+ * Xoá phiên đăng nhập khi token không còn hợp lệ.
+ * Gọi được từ ngoài React (lib/api.ts) vì dữ liệu phiên nằm ở localStorage.
+ */
+export function expireSession() {
+  try {
+    if (!window.localStorage.getItem(STORAGE_KEY)) {
+      return false;
+    }
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    return false;
+  }
+  emit();
+  return true;
+}
+
 export function useSession() {
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 

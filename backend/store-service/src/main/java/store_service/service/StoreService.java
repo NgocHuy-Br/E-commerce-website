@@ -19,10 +19,13 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final AuthServiceClient authServiceClient;
+    private final ProductCatalogClient productCatalogClient;
 
-    public StoreService(StoreRepository storeRepository, AuthServiceClient authServiceClient) {
+    public StoreService(StoreRepository storeRepository, AuthServiceClient authServiceClient,
+            ProductCatalogClient productCatalogClient) {
         this.storeRepository = storeRepository;
         this.authServiceClient = authServiceClient;
+        this.productCatalogClient = productCatalogClient;
     }
 
     @Transactional(readOnly = true)
@@ -70,6 +73,10 @@ public class StoreService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy cửa hàng"));
         store.update(request.name(), request.description(), request.address(), request.phoneNumber(),
                 request.logoUrl());
+        // Cửa hàng bị từ chối sau khi sửa lại thông tin thì được chờ duyệt lần nữa.
+        if (store.getStatus() == StoreStatus.REJECTED) {
+            store.setStatus(StoreStatus.PENDING);
+        }
         return toResponse(store);
     }
 
@@ -93,9 +100,16 @@ public class StoreService {
     @Transactional
     public StoreResponse updateStatus(Long storeId, StoreStatus status, String authorization) {
         Store store = findStore(storeId);
+        if (store.getStatus() == status) {
+            return toResponse(store);
+        }
         store.setStatus(status);
-        if (status == StoreStatus.ACTIVE)
+        if (status == StoreStatus.ACTIVE) {
             authServiceClient.grantSellerRole(store.getOwnerId(), authorization);
+        }
+        // Cửa hàng bị tạm ngưng hoặc từ chối thì sản phẩm phải biến khỏi sàn ngay,
+        // được duyệt lại thì mở bán lại.
+        productCatalogClient.setStoreProductsVisible(storeId, status == StoreStatus.ACTIVE);
         return toResponse(store);
     }
 
