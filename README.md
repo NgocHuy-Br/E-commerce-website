@@ -80,11 +80,12 @@ Gọi nội bộ giữa các service:
 cd backend/<ten-service> && ./mvnw test
 ```
 
-34 test: auth-service 6, product-service 12, order-service 14,
+43 test: auth-service 6, product-service 12, order-service 23,
 user-service/store-service/api-gateway mỗi service 1. Phần lớn là unit test với Mockito
 (không cần cơ sở dữ liệu), riêng `*ApplicationTests` cần MySQL đang chạy.
 Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khuyến mãi, tổng tiền đơn hàng,
-tách đơn theo cửa hàng, quy tắc mã giảm giá và quy tắc phân quyền (ADMIN loại trừ BUYER/SELLER).
+tách đơn theo cửa hàng, quy tắc mã giảm giá, giỏ hàng (cộng dồn số lượng, giữ thứ tự dòng hàng,
+chặn vượt tồn kho, chặn sản phẩm đã ẩn) và quy tắc phân quyền (ADMIN loại trừ BUYER/SELLER).
 
 ### Cơ chế đảm bảo dữ liệu đúng
 
