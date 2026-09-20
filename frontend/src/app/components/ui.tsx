@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import { keepDigitsOnly } from "../lib/validate";
 
 export function Card({
   title,
@@ -74,9 +75,12 @@ export function Button({
 export function Field({
   label,
   children,
+  error,
 }: {
   label: string;
   children: ReactNode;
+  /** Thông báo lỗi hiện ngay dưới ô nhập. */
+  error?: string | null;
 }) {
   return (
     <label className="block text-sm">
@@ -84,6 +88,9 @@ export function Field({
         {label}
       </span>
       {children}
+      {error && (
+        <span className="mt-1 block text-xs text-rose-600">{error}</span>
+      )}
     </label>
   );
 }
@@ -97,23 +104,33 @@ export function TextInput({
   placeholder,
   type = "text",
   onEnter,
+  digitsOnly = false,
+  invalid = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
   onEnter?: () => void;
+  /** Ô chỉ cho nhập số: mọi ký tự khác chữ số đều bị bỏ ngay khi gõ. */
+  digitsOnly?: boolean;
+  invalid?: boolean;
 }) {
   return (
     <input
       type={type}
       value={value}
       placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
+      inputMode={digitsOnly ? "numeric" : undefined}
+      onChange={(event) =>
+        onChange(
+          digitsOnly ? keepDigitsOnly(event.target.value) : event.target.value,
+        )
+      }
       onKeyDown={(event) => {
         if (event.key === "Enter" && onEnter) onEnter();
       }}
-      className={controlClass}
+      className={`${controlClass} ${invalid ? "border-rose-500" : ""}`}
     />
   );
 }

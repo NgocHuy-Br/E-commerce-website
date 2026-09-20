@@ -5,6 +5,13 @@ import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
+import {
+  checkImageUrl,
+  checkName,
+  checkPhone,
+  checkText,
+  firstError,
+} from "../../lib/validate";
 import type { Address, Profile } from "../../lib/types";
 import { Badge, Button, Card, Empty, Field, TextInput } from "../ui";
 
@@ -29,6 +36,7 @@ export function ProfilePanel() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [form, setForm] = useState({ ...emptyAddress });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -50,6 +58,15 @@ export function ProfilePanel() {
   useLoadEffect(load);
 
   const saveProfile = async () => {
+    const problems = {
+      fullName: checkName(fullName, "Họ tên", false),
+      phoneNumber: checkPhone(phoneNumber, false),
+      avatarUrl: checkImageUrl(avatarUrl),
+    };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     try {
       const updated = await api<Profile>("/api/users/me", {
         method: "PUT",
@@ -64,6 +81,18 @@ export function ProfilePanel() {
   };
 
   const saveAddress = async () => {
+    const problems = {
+      recipientName: checkName(form.recipientName, "Tên người nhận"),
+      addressPhone: checkPhone(form.phoneNumber),
+      detail: checkText(form.detail, "Số nhà, đường"),
+      ward: checkText(form.ward, "Phường/xã"),
+      district: checkText(form.district, "Quận/huyện"),
+      city: checkText(form.city, "Tỉnh/thành phố"),
+    };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     try {
       const path = editingId
         ? `/api/users/me/addresses/${editingId}`
@@ -105,25 +134,29 @@ export function ProfilePanel() {
           Email: {profile?.email ?? "-"}
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Họ tên">
+          <Field label="Họ tên" error={errors.fullName}>
             <TextInput
               value={fullName}
               onChange={setFullName}
               placeholder="Nguyễn Văn A"
+              invalid={Boolean(errors.fullName)}
             />
           </Field>
-          <Field label="Số điện thoại">
+          <Field label="Số điện thoại" error={errors.phoneNumber}>
             <TextInput
               value={phoneNumber}
               onChange={setPhoneNumber}
               placeholder="09xxxxxxxx"
+              digitsOnly
+              invalid={Boolean(errors.phoneNumber)}
             />
           </Field>
-          <Field label="Ảnh đại diện (URL)">
+          <Field label="Ảnh đại diện (URL)" error={errors.avatarUrl}>
             <TextInput
               value={avatarUrl}
               onChange={setAvatarUrl}
               placeholder="https://..."
+              invalid={Boolean(errors.avatarUrl)}
             />
           </Field>
         </div>
@@ -185,40 +218,47 @@ export function ProfilePanel() {
         )}
 
         <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-3">
-          <Field label="Người nhận">
+          <Field label="Người nhận" error={errors.recipientName}>
             <TextInput
               value={form.recipientName}
               onChange={(value) => setForm({ ...form, recipientName: value })}
+              invalid={Boolean(errors.recipientName)}
             />
           </Field>
-          <Field label="Số điện thoại">
+          <Field label="Số điện thoại" error={errors.addressPhone}>
             <TextInput
               value={form.phoneNumber}
               onChange={(value) => setForm({ ...form, phoneNumber: value })}
+              digitsOnly
+              invalid={Boolean(errors.addressPhone)}
             />
           </Field>
-          <Field label="Số nhà, đường">
+          <Field label="Số nhà, đường" error={errors.detail}>
             <TextInput
               value={form.detail}
               onChange={(value) => setForm({ ...form, detail: value })}
+              invalid={Boolean(errors.detail)}
             />
           </Field>
-          <Field label="Phường/Xã">
+          <Field label="Phường/Xã" error={errors.ward}>
             <TextInput
               value={form.ward}
               onChange={(value) => setForm({ ...form, ward: value })}
+              invalid={Boolean(errors.ward)}
             />
           </Field>
-          <Field label="Quận/Huyện">
+          <Field label="Quận/Huyện" error={errors.district}>
             <TextInput
               value={form.district}
               onChange={(value) => setForm({ ...form, district: value })}
+              invalid={Boolean(errors.district)}
             />
           </Field>
-          <Field label="Tỉnh/Thành phố">
+          <Field label="Tỉnh/Thành phố" error={errors.city}>
             <TextInput
               value={form.city}
               onChange={(value) => setForm({ ...form, city: value })}
+              invalid={Boolean(errors.city)}
             />
           </Field>
         </div>

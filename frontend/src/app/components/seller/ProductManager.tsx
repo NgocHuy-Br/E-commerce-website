@@ -6,6 +6,12 @@ import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import {
+  checkImageUrl,
+  checkNumber,
+  checkText,
+  firstError,
+} from "../../lib/validate";
+import {
   defaultPromotionRange,
   formatCurrency,
   formatDateTime,
@@ -45,6 +51,7 @@ export function ProductManager({ store }: { store: Store | null }) {
   const [promotingProduct, setPromotingProduct] = useState<Product | null>(
     null,
   );
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -71,6 +78,19 @@ export function ProductManager({ store }: { store: Store | null }) {
   useLoadEffect(load);
 
   const submit = async () => {
+    const problems = {
+      name: checkText(form.name, "Tên sản phẩm"),
+      price: checkNumber(form.price, "Giá", { min: 1, max: 999999999 }),
+      stockQuantity: checkNumber(form.stockQuantity, "Tồn kho", {
+        min: 0,
+        max: 100000,
+      }),
+      imageUrl: checkImageUrl(form.imageUrl),
+    };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     if (!store) {
       notify("Bạn cần có cửa hàng đã được duyệt.", "error");
       return;
@@ -154,10 +174,11 @@ export function ProductManager({ store }: { store: Store | null }) {
     <div className="space-y-5">
       <Card title={editingId ? "Cập nhật sản phẩm" : "Đăng bán sản phẩm"}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Tên sản phẩm">
+          <Field label="Tên sản phẩm" error={errors.name}>
             <TextInput
               value={form.name}
               onChange={(value) => setForm({ ...form, name: value })}
+              invalid={Boolean(errors.name)}
             />
           </Field>
           <Field label="Danh mục">
@@ -170,24 +191,29 @@ export function ProductManager({ store }: { store: Store | null }) {
               }))}
             />
           </Field>
-          <Field label="Giá (đ)">
+          <Field label="Giá (đ)" error={errors.price}>
             <TextInput
               type="number"
               value={form.price}
               onChange={(value) => setForm({ ...form, price: value })}
+              digitsOnly
+              invalid={Boolean(errors.price)}
             />
           </Field>
-          <Field label="Tồn kho">
+          <Field label="Tồn kho" error={errors.stockQuantity}>
             <TextInput
               type="number"
               value={form.stockQuantity}
               onChange={(value) => setForm({ ...form, stockQuantity: value })}
+              digitsOnly
+              invalid={Boolean(errors.stockQuantity)}
             />
           </Field>
-          <Field label="Ảnh (URL)">
+          <Field label="Ảnh (URL)" error={errors.imageUrl}>
             <TextInput
               value={form.imageUrl}
               onChange={(value) => setForm({ ...form, imageUrl: value })}
+              invalid={Boolean(errors.imageUrl)}
             />
           </Field>
         </div>
@@ -358,10 +384,19 @@ function PromotionModal({
   const notify = useNotify();
   const range = defaultPromotionRange();
   const [discountPercent, setDiscountPercent] = useState("10");
+  const [discountError, setDiscountError] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState(range.startsAt);
   const [endsAt, setEndsAt] = useState(range.endsAt);
 
   const submit = async () => {
+    const problem = checkNumber(discountPercent, "Phần trăm giảm", {
+      min: 1,
+      max: 90,
+    });
+    setDiscountError(problem);
+    if (problem) {
+      return;
+    }
     try {
       await api(`/api/products/${product.id}/promotions`, {
         method: "POST",
@@ -382,11 +417,13 @@ function PromotionModal({
   return (
     <Modal title={`Khuyến mãi: ${product.name}`} onClose={onClose}>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Giảm (%) 1-90">
+        <Field label="Giảm (%) 1-90" error={discountError}>
           <TextInput
             type="number"
             value={discountPercent}
             onChange={setDiscountPercent}
+            digitsOnly
+            invalid={Boolean(discountError)}
           />
         </Field>
         <Field label="Bắt đầu">

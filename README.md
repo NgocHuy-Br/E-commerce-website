@@ -87,6 +87,32 @@ Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khu
 tách đơn theo cửa hàng, quy tắc mã giảm giá, giỏ hàng (cộng dồn số lượng, giữ thứ tự dòng hàng,
 chặn vượt tồn kho, chặn sản phẩm đã ẩn) và quy tắc phân quyền (ADMIN loại trừ BUYER/SELLER).
 
+### Kiểm tra dữ liệu nhập (validation)
+
+Backend kiểm tra bằng Bean Validation trên các DTO, frontend kiểm tra lại để báo lỗi ngay
+dưới ô nhập (`frontend/src/app/lib/validate.ts`). Các quy tắc chính:
+
+| Trường | Quy tắc | Thông báo khi sai |
+|---|---|---|
+| Email | đúng định dạng email | Email không đúng định dạng |
+| Mật khẩu | từ 6 đến 72 ký tự | Mật khẩu phải từ 6 đến 72 ký tự |
+| Họ tên, tên người nhận | chỉ chữ và dấu cách (có dấu tiếng Việt) | Họ tên chỉ gồm chữ và dấu cách |
+| Số điện thoại | 10 chữ số, bắt đầu bằng 0 | Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0 |
+| Tên cửa hàng, sản phẩm, danh mục | chữ, số và dấu thông dụng | Không được chứa ký tự đặc biệt |
+| Địa chỉ | chữ, số, dấu cách, `. , - /` | Không được chứa ký tự đặc biệt |
+| Giá sản phẩm | số lớn hơn 0, tối đa 999.999.999 | Giá phải là số lớn hơn 0 |
+| Tồn kho | số nguyên không âm, tối đa 100.000 | Tồn kho phải là số không âm |
+| Phần trăm giảm | số nguyên từ 1 đến 90 | Phần trăm giảm phải từ 1 đến 90 |
+| Mã giảm giá | chỉ chữ và số, 3-20 ký tự | Mã giảm giá chỉ gồm chữ và số |
+| Số lượt dùng mã | số lớn hơn 0, tối đa 10.000 | Số lượt dùng phải là số lớn hơn 0 |
+| Số lượng trong giỏ | số lớn hơn 0, tối đa 1000 | Số lượng phải là số lớn hơn 0 |
+| Số sao đánh giá | từ 1 đến 5 | Số sao phải từ 1 đến 5 |
+| Đường dẫn ảnh, logo | để trống hoặc bắt đầu bằng http/https | Phải là đường dẫn bắt đầu bằng http:// |
+
+Các ô chỉ nhập số (giá, tồn kho, phần trăm, số điện thoại, số lượt dùng) dùng
+`<TextInput digitsOnly />` nên gõ chữ hay ký tự đặc biệt sẽ không hiện ra.
+Khi sai, ô nhập viền đỏ và có dòng chữ đỏ ngay bên dưới.
+
 ### Cơ chế đảm bảo dữ liệu đúng
 
 - **Chống bán vượt tồn kho**: khi trừ hoặc hoàn kho, product-service khoá dòng sản phẩm

@@ -38,7 +38,6 @@ export default function CartPage() {
   const [voucherCode, setVoucherCode] = useState("");
   const [placing, setPlacing] = useState(false);
 
-
   const load = useCallback(async () => {
     const [voucherData, addressData] = await Promise.all([
       api<Voucher[]>("/api/orders/vouchers/active").catch(

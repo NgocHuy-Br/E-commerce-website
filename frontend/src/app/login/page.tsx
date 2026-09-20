@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Button, Card, Field, TextInput } from "../components/ui";
 import { api, errorMessage } from "../lib/api";
+import { checkEmail, checkPassword } from "../lib/validate";
 import { useSession } from "../lib/session";
 import { useNotify } from "../lib/toast";
 import type { AuthResponse } from "../lib/types";
@@ -19,14 +20,20 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Lỗi của từng ô nhập, hiện ngay dưới ô đó.
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const nextPath = searchParams.get("next") || "/";
 
   const submit = async () => {
     // Cắt khoảng trắng để email dán từ nơi khác không bị báo sai định dạng.
     const normalizedEmail = email.trim();
-    if (!normalizedEmail || !password) {
-      notify("Hãy nhập email và mật khẩu.", "error");
+    const emailProblem = checkEmail(normalizedEmail);
+    const passwordProblem = checkPassword(password);
+    setEmailError(emailProblem);
+    setPasswordError(passwordProblem);
+    if (emailProblem || passwordProblem) {
       return;
     }
     setLoading(true);
@@ -81,21 +88,29 @@ function LoginForm() {
         </div>
 
         <div className="space-y-3">
-          <Field label="Email">
+          <Field label="Email" error={emailError}>
             <TextInput
               value={email}
-              onChange={setEmail}
+              onChange={(value) => {
+                setEmail(value);
+                setEmailError(null);
+              }}
               placeholder="ban@example.com"
               onEnter={submit}
+              invalid={Boolean(emailError)}
             />
           </Field>
-          <Field label="Mật khẩu">
+          <Field label="Mật khẩu" error={passwordError}>
             <TextInput
               type="password"
               value={password}
-              onChange={setPassword}
+              onChange={(value) => {
+                setPassword(value);
+                setPasswordError(null);
+              }}
               placeholder="Ít nhất 6 ký tự"
               onEnter={submit}
+              invalid={Boolean(passwordError)}
             />
           </Field>
         </div>

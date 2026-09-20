@@ -5,6 +5,7 @@ import { api, errorMessage } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
+import { checkNumber, checkVoucherCode, firstError } from "../../lib/validate";
 import {
   defaultPromotionRange,
   formatCurrency,
@@ -26,6 +27,7 @@ export function VoucherManager() {
   const [remainingUses, setRemainingUses] = useState("100");
   const [startsAt, setStartsAt] = useState(range.startsAt);
   const [endsAt, setEndsAt] = useState(range.endsAt);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -39,6 +41,25 @@ export function VoucherManager() {
   useLoadEffect(load);
 
   const create = async () => {
+    const problems = {
+      code: checkVoucherCode(code),
+      discountPercent: checkNumber(discountPercent, "Phần trăm giảm", {
+        min: 1,
+        max: 90,
+      }),
+      minimumOrderAmount: checkNumber(minimumOrderAmount, "Đơn tối thiểu", {
+        min: 0,
+        max: 999999999,
+      }),
+      remainingUses: checkNumber(remainingUses, "Số lượt dùng", {
+        min: 1,
+        max: 10000,
+      }),
+    };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     try {
       await api("/api/orders/vouchers", {
         method: "POST",
@@ -76,28 +97,39 @@ export function VoucherManager() {
   return (
     <Card title={`Mã giảm giá (${vouchers.length})`}>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Mã">
-          <TextInput value={code} onChange={setCode} placeholder="SALE10" />
+        <Field label="Mã" error={errors.code}>
+          <TextInput
+            value={code}
+            onChange={setCode}
+            placeholder="SALE10"
+            invalid={Boolean(errors.code)}
+          />
         </Field>
-        <Field label="Giảm (%)">
+        <Field label="Giảm (%)" error={errors.discountPercent}>
           <TextInput
             type="number"
             value={discountPercent}
             onChange={setDiscountPercent}
+            digitsOnly
+            invalid={Boolean(errors.discountPercent)}
           />
         </Field>
-        <Field label="Đơn tối thiểu (đ)">
+        <Field label="Đơn tối thiểu (đ)" error={errors.minimumOrderAmount}>
           <TextInput
             type="number"
             value={minimumOrderAmount}
             onChange={setMinimumOrderAmount}
+            digitsOnly
+            invalid={Boolean(errors.minimumOrderAmount)}
           />
         </Field>
-        <Field label="Số lượt dùng">
+        <Field label="Số lượt dùng" error={errors.remainingUses}>
           <TextInput
             type="number"
             value={remainingUses}
             onChange={setRemainingUses}
+            digitsOnly
+            invalid={Boolean(errors.remainingUses)}
           />
         </Field>
         <Field label="Bắt đầu">

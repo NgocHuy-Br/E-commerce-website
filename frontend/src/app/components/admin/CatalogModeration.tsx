@@ -5,6 +5,7 @@ import { api, errorMessage, query } from "../../lib/api";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
+import { checkText, firstError } from "../../lib/validate";
 import { formatCurrency } from "../../lib/format";
 import type { Category, Product, ProductStatus } from "../../lib/types";
 import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
@@ -19,6 +20,7 @@ export function CatalogModeration() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -40,6 +42,11 @@ export function CatalogModeration() {
   useLoadEffect(load);
 
   const saveCategory = async () => {
+    const problems = { name: checkText(name, "Tên danh mục") };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     try {
       await api<Category>(
         editingId
@@ -81,11 +88,12 @@ export function CatalogModeration() {
     <div className="space-y-5">
       <Card title={`Danh mục hàng hoá (${categories.length})`}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Tên danh mục">
+          <Field label="Tên danh mục" error={errors.name}>
             <TextInput
               value={name}
               onChange={setName}
               placeholder="Đồ điện tử"
+              invalid={Boolean(errors.name)}
             />
           </Field>
           <Field label="Mô tả">

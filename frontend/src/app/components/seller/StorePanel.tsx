@@ -4,6 +4,12 @@ import { useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
+import {
+  checkImageUrl,
+  checkPhone,
+  checkText,
+  firstError,
+} from "../../lib/validate";
 import type { Store } from "../../lib/types";
 import { Badge, Button, Card, Field, TextArea, TextInput } from "../ui";
 
@@ -40,7 +46,19 @@ export function StorePanel({
     logoUrl: store?.logoUrl ?? "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+
   const submit = async () => {
+    const problems = {
+      name: checkText(form.name, "Tên cửa hàng"),
+      phoneNumber: checkPhone(form.phoneNumber),
+      address: checkText(form.address, "Địa chỉ"),
+      logoUrl: checkImageUrl(form.logoUrl),
+    };
+    setErrors(problems);
+    if (firstError(problems)) {
+      return;
+    }
     try {
       const saved = await api<Store>(
         store ? "/api/stores/mine" : "/api/stores",
@@ -86,28 +104,33 @@ export function StorePanel({
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Tên cửa hàng">
+        <Field label="Tên cửa hàng" error={errors.name}>
           <TextInput
             value={form.name}
             onChange={(value) => setForm({ ...form, name: value })}
+            invalid={Boolean(errors.name)}
           />
         </Field>
-        <Field label="Số điện thoại">
+        <Field label="Số điện thoại" error={errors.phoneNumber}>
           <TextInput
             value={form.phoneNumber}
             onChange={(value) => setForm({ ...form, phoneNumber: value })}
+            digitsOnly
+            invalid={Boolean(errors.phoneNumber)}
           />
         </Field>
-        <Field label="Địa chỉ">
+        <Field label="Địa chỉ" error={errors.address}>
           <TextInput
             value={form.address}
             onChange={(value) => setForm({ ...form, address: value })}
+            invalid={Boolean(errors.address)}
           />
         </Field>
-        <Field label="Logo (URL)">
+        <Field label="Logo (URL)" error={errors.logoUrl}>
           <TextInput
             value={form.logoUrl}
             onChange={(value) => setForm({ ...form, logoUrl: value })}
+            invalid={Boolean(errors.logoUrl)}
           />
         </Field>
       </div>
