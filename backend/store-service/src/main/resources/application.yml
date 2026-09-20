@@ -13,7 +13,17 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  http:
+    client:
+      connect-timeout: 3s
+      read-timeout: 8s
 
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
+  auth-service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8081}
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8083}
+  internal:
+    key: ${INTERNAL_API_KEY:nhom14-development-internal-key}

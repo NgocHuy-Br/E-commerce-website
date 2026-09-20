@@ -17,4 +17,5 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    # 8 gio: giam thoi gian token cu con hieu luc sau khi quan tri vien doi quyen hoac khoa tai khoan
+    expiration-ms: ${JWT_EXPIRATION_MS:28800000}

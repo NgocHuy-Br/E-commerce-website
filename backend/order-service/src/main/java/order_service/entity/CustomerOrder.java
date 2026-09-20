@@ -14,12 +14,17 @@ public class CustomerOrder {
     private Long id;
     @Column(nullable = false)
     private Long buyerId;
+
+    /** Mỗi đơn hàng chỉ thuộc một cửa hàng; giỏ nhiều shop được tách thành nhiều đơn. */
+    @Column(nullable = false)
+    private Long storeId;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
     @Column(nullable = false, length = 500)
     private String shippingAddress;
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentStatus paymentStatus;
@@ -38,11 +43,13 @@ public class CustomerOrder {
     protected CustomerOrder() {
     }
 
-    public CustomerOrder(Long buyerId, String shippingAddress, String paymentMethod) {
+    public CustomerOrder(Long buyerId, Long storeId, String shippingAddress, PaymentMethod paymentMethod) {
         this.buyerId = buyerId;
+        this.storeId = storeId;
         this.shippingAddress = shippingAddress;
         this.paymentMethod = paymentMethod;
-        this.paymentStatus = "COD".equalsIgnoreCase(paymentMethod) ? PaymentStatus.PENDING : PaymentStatus.PAID;
+        // Trả trước thì ghi nhận đã thanh toán ngay, COD thì chờ người mua trả tiền.
+        this.paymentStatus = paymentMethod.isPayOnDelivery() ? PaymentStatus.PENDING : PaymentStatus.PAID;
         this.status = OrderStatus.PENDING;
         this.createdAt = Instant.now();
         this.totalAmount = BigDecimal.ZERO;
@@ -53,9 +60,10 @@ public class CustomerOrder {
         totalAmount = totalAmount.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 
+    /** Áp mã giảm giá theo phần trăm lên tổng tiền của đơn này. */
     public void applyVoucher(Voucher voucher) {
         discountAmount = totalAmount.multiply(BigDecimal.valueOf(voucher.getDiscountPercent()))
-                .divide(BigDecimal.valueOf(100));
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
         totalAmount = totalAmount.subtract(discountAmount);
         voucherCode = voucher.getCode();
     }
@@ -68,6 +76,10 @@ public class CustomerOrder {
         return buyerId;
     }
 
+    public Long getStoreId() {
+        return storeId;
+    }
+
     public BigDecimal getTotalAmount() {
         return totalAmount;
     }
@@ -76,8 +88,13 @@ public class CustomerOrder {
         return shippingAddress;
     }
 
-    public String getPaymentMethod() {
+    public PaymentMethod getPaymentMethod() {
         return paymentMethod;
+    }
+
+    /** Người mua có thể đổi phương thức khi bấm thanh toán đơn COD. */
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     public PaymentStatus getPaymentStatus() {
@@ -94,6 +111,10 @@ public class CustomerOrder {
 
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 
     public List<OrderItem> getItems() {

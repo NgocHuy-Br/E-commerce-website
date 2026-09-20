@@ -69,6 +69,10 @@ public class Account {
         return passwordHash;
     }
 
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public Set<Role> getRoles() {
         if (roles.isEmpty()) {
             return legacyRole == Role.BUYER ? Set.of(Role.BUYER) : Set.of(Role.BUYER, legacyRole);
@@ -80,10 +84,17 @@ public class Account {
         roles.add(role);
     }
 
-    public void removeRole(Role role) {
-        if (role != Role.BUYER) {
-            roles.remove(role);
-        }
+    /** Thay toàn bộ quyền của tài khoản (dùng khi quản trị viên phân quyền lại). */
+    public void replaceRoles(Set<Role> newRoles) {
+        roles.clear();
+        roles.addAll(newRoles);
+        // Cột role cũ vẫn NOT NULL nên giữ một giá trị đại diện.
+        legacyRole = newRoles.contains(Role.ADMIN) ? Role.ADMIN
+                : newRoles.contains(Role.SELLER) ? Role.SELLER : Role.BUYER;
+    }
+
+    public boolean isAdmin() {
+        return getRoles().contains(Role.ADMIN);
     }
 
     public AccountStatus getStatus() {

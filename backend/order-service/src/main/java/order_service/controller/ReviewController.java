@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import order_service.dto.ReviewRequest;
 import order_service.dto.ReviewResponse;
+import order_service.dto.ReviewSummaryResponse;
 import order_service.security.AuthPrincipal;
 import order_service.service.ReviewService;
 import org.springframework.http.HttpStatus;
@@ -31,5 +32,11 @@ public class ReviewController {
     @GetMapping("/reviews")
     public List<ReviewResponse> getByProduct(@RequestParam Long productId) {
         return reviewService.getByProduct(productId);
+    }
+
+    /** Điểm sao trung bình của một hoặc nhiều sản phẩm. */
+    @GetMapping("/reviews/summary")
+    public List<ReviewSummaryResponse> summarize(@RequestParam List<Long> productIds) {
+        return reviewService.summarize(productIds);
     }
 }

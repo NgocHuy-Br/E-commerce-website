@@ -2,13 +2,16 @@ package auth_service.service;
 
 import auth_service.dto.AuthResponse;
 import auth_service.dto.AccountResponse;
+import auth_service.dto.AccountStatsResponse;
 import auth_service.dto.LoginRequest;
+import auth_service.dto.PasswordChangeRequest;
 import auth_service.dto.RegisterRequest;
 import auth_service.entity.Account;
 import auth_service.entity.AccountStatus;
 import auth_service.entity.Role;
 import auth_service.repository.AccountRepository;
 import auth_service.security.JwtService;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +41,7 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
         if (accountRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã được đăng ký");
         }
 
         Account account = accountRepository.save(new Account(
@@ -51,14 +54,45 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
         Account account = accountRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Email hoặc mật khẩu không đúng"));
 
-        if (account.getStatus() != AccountStatus.ACTIVE
-                || !passwordEncoder.matches(request.password(), account.getPasswordHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        if (!passwordEncoder.matches(request.password(), account.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
+        }
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Tài khoản đã bị khoá, vui lòng liên hệ quản trị viên");
         }
 
         return toAuthResponse(account);
+    }
+
+    @Transactional
+    public void changePassword(Long accountId, PasswordChangeRequest request) {
+        Account account = findAccount(accountId);
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản đã bị khoá");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), account.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu hiện tại không đúng");
+        }
+        if (passwordEncoder.matches(request.newPassword(), account.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        account.changePassword(passwordEncoder.encode(request.newPassword()));
+    }
+
+    @Transactional(readOnly = true)
+    public AccountStatsResponse getStatistics() {
+        List<Account> accounts = accountRepository.findAll();
+        return new AccountStatsResponse(
+                accounts.size(),
+                accounts.stream().filter(account -> account.getStatus() == AccountStatus.ACTIVE).count(),
+                accounts.stream().filter(account -> account.getStatus() == AccountStatus.LOCKED).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.BUYER)).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.SELLER)).count(),
+                accounts.stream().filter(account -> account.getRoles().contains(Role.ADMIN)).count());
     }
 
     @Transactional(readOnly = true)
@@ -69,10 +103,23 @@ public class AuthService {
     @Transactional
     public AccountResponse updateRoles(Long accountId, Set<Role> roles) {
         Account account = findAccount(accountId);
-        roles.forEach(account::addRole);
-        account.getRoles().stream().filter(role -> role != Role.BUYER && !roles.contains(role))
-                .forEach(account::removeRole);
+        account.replaceRoles(normalizeRoles(roles));
         return toAccountResponse(account);
+    }
+
+    /**
+     * Quản trị viên là tài khoản nội bộ nên không kiêm mua hàng hay bán hàng;
+     * tài khoản khách thì luôn có quyền BUYER làm nền.
+     */
+    private Set<Role> normalizeRoles(Set<Role> roles) {
+        if (roles.contains(Role.ADMIN)) {
+            return EnumSet.of(Role.ADMIN);
+        }
+        EnumSet<Role> normalized = EnumSet.of(Role.BUYER);
+        if (roles.contains(Role.SELLER)) {
+            normalized.add(Role.SELLER);
+        }
+        return normalized;
     }
 
     @Transactional
@@ -85,6 +132,10 @@ public class AuthService {
     @Transactional
     public AccountResponse grantSellerRole(Long accountId) {
         Account account = findAccount(accountId);
+        if (account.isAdmin()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tài khoản quản trị viên không thể trở thành người bán");
+        }
         account.addRole(Role.SELLER);
         return toAccountResponse(account);
     }
@@ -104,7 +155,7 @@ public class AuthService {
 
     private Account findAccount(Long accountId) {
         return accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản"));
     }
 
     private String normalizeEmail(String email) {

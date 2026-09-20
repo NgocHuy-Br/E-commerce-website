@@ -1,11 +1,13 @@
 package order_service.dto;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import java.math.BigDecimal;
 
-public record CartItemRequest(@NotNull Long productId, @NotBlank String productName, @NotNull BigDecimal unitPrice,
-        @Positive int quantity) {
+/** Giỏ hàng chỉ nhận mã sản phẩm và số lượng, giá lấy từ product-service để tránh gian lận giá. */
+public record CartItemRequest(
+        @NotNull(message = "Thiếu mã sản phẩm") Long productId,
+
+        @Positive(message = "Số lượng phải là số lớn hơn 0") //
+        @Max(value = 1000, message = "Mỗi lần chỉ thêm tối đa 1000 sản phẩm") int quantity) {
 }

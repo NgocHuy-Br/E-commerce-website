@@ -36,6 +36,7 @@ class AuthServiceApplicationTests {
 	@Mock
 	private JwtService jwtService;
 
+
 	@InjectMocks
 	private AuthService authService;
 

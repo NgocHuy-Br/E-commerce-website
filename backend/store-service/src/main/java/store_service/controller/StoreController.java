@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import store_service.dto.StoreRequest;
+import store_service.dto.StoreStatsResponse;
 import store_service.dto.StoreResponse;
 import store_service.dto.StoreStatusRequest;
 import store_service.dto.StoreVerificationResponse;
@@ -74,6 +75,12 @@ public class StoreController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<StoreResponse> getForAdmin(@RequestParam(required = false) StoreStatus status) {
         return storeService.getForAdmin(status);
+    }
+
+    @GetMapping("/admin/statistics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public StoreStatsResponse getStatistics() {
+        return storeService.getStatistics();
     }
 
     @PutMapping("/{storeId}/status")

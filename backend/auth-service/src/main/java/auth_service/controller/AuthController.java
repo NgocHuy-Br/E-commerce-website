@@ -5,7 +5,9 @@ import auth_service.dto.AccountResponse;
 import auth_service.dto.AccountRolesRequest;
 import auth_service.dto.AccountStatusRequest;
 import auth_service.dto.CurrentUserResponse;
+import auth_service.dto.AccountStatsResponse;
 import auth_service.dto.LoginRequest;
+import auth_service.dto.PasswordChangeRequest;
 import auth_service.dto.RegisterRequest;
 import auth_service.security.AuthPrincipal;
 import auth_service.service.AuthService;
@@ -48,6 +50,19 @@ public class AuthController {
     @GetMapping("/me")
     public CurrentUserResponse me(@AuthenticationPrincipal AuthPrincipal principal) {
         return new CurrentUserResponse(principal.userId(), principal.email(), principal.roles());
+    }
+
+    @PutMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody PasswordChangeRequest request) {
+        authService.changePassword(principal.userId(), request);
+    }
+
+    @GetMapping("/admin/statistics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AccountStatsResponse getStatistics() {
+        return authService.getStatistics();
     }
 
     @GetMapping("/admin/accounts")
