@@ -14,9 +14,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
@@ -30,6 +32,23 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = body(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ");
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /**
+     * Dữ liệu gửi lên không đọc được: JSON sai cú pháp, hoặc điền chữ vào ô số,
+     * hoặc gửi một giá trị không có trong danh sách cho phép. Phải trả 400 chứ không phải 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(HttpMessageNotReadableException exception) {
+        return ResponseEntity.badRequest()
+                .body(body(HttpStatus.BAD_REQUEST, "Dữ liệu gửi lên không đúng định dạng"));
+    }
+
+    /** Tham số trên đường dẫn hoặc query sai kiểu, ví dụ ?status=XYZ. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleWrongParamType(MethodArgumentTypeMismatchException exception) {
+        return ResponseEntity.badRequest()
+                .body(body(HttpStatus.BAD_REQUEST, "Giá trị của tham số '" + exception.getName() + "' không hợp lệ"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -1,6 +1,7 @@
 package order_service.dto;
 
 import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -24,6 +25,7 @@ public record VoucherRequest(
         @NotNull(message = "Giá trị đơn tối thiểu không được để trống") //
         @PositiveOrZero(message = "Giá trị đơn tối thiểu phải là số không âm") //
         @DecimalMax(value = "999999999", message = "Giá trị đơn tối thiểu tối đa 999.999.999đ") //
+        @Digits(integer = 9, fraction = 2, message = "Giá trị đơn tối thiểu chỉ được có tối đa 2 số thập phân") //
         BigDecimal minimumOrderAmount,
 
         @Positive(message = "Số lượt dùng phải là số lớn hơn 0") //

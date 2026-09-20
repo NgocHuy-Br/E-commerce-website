@@ -45,6 +45,9 @@ public class VoucherController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Thời gian kết thúc phải sau thời gian bắt đầu");
         }
+        if (request.endsAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết hạn");
+        }
         String code = request.code().trim().toUpperCase();
         if (voucherRepository.existsByCodeIgnoreCase(code)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giảm giá đã tồn tại");

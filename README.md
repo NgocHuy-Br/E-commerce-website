@@ -97,21 +97,28 @@ dưới ô nhập (`frontend/src/app/lib/validate.ts`). Các quy tắc chính:
 | Email | đúng định dạng email | Email không đúng định dạng |
 | Mật khẩu | từ 6 đến 72 ký tự | Mật khẩu phải từ 6 đến 72 ký tự |
 | Họ tên, tên người nhận | chỉ chữ và dấu cách (có dấu tiếng Việt) | Họ tên chỉ gồm chữ và dấu cách |
+| Số điện thoại cửa hàng | 10 chữ số bắt đầu bằng 0, hoặc hotline 1900/1800 | Số điện thoại phải là 10 chữ số bắt đầu bằng 0, hoặc hotline 1900/1800 |
 | Số điện thoại | 10 chữ số, bắt đầu bằng 0 | Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0 |
-| Tên cửa hàng, sản phẩm, danh mục | chữ, số và dấu thông dụng | Không được chứa ký tự đặc biệt |
-| Địa chỉ | chữ, số, dấu cách, `. , - /` | Không được chứa ký tự đặc biệt |
-| Giá sản phẩm | số lớn hơn 0, tối đa 999.999.999 | Giá phải là số lớn hơn 0 |
+| Tên cửa hàng, sản phẩm, danh mục | chữ, số và các dấu `. , - _ / & + ( ) % : ' " # ! ?` | Tên sản phẩm chứa ký tự không được phép |
+| Địa chỉ | chữ, số, dấu cách, `. , - / ( ) + # :` | Địa chỉ chứa ký tự không được phép |
+| Giá sản phẩm | số lớn hơn 0, tối đa 999.999.999, tối đa 2 số thập phân | Giá phải là số lớn hơn 0 |
 | Tồn kho | số nguyên không âm, tối đa 100.000 | Tồn kho phải là số không âm |
 | Phần trăm giảm | số nguyên từ 1 đến 90 | Phần trăm giảm phải từ 1 đến 90 |
 | Mã giảm giá | chỉ chữ và số, 3-20 ký tự | Mã giảm giá chỉ gồm chữ và số |
 | Số lượt dùng mã | số lớn hơn 0, tối đa 10.000 | Số lượt dùng phải là số lớn hơn 0 |
 | Số lượng trong giỏ | số lớn hơn 0, tối đa 1000 | Số lượng phải là số lớn hơn 0 |
 | Số sao đánh giá | từ 1 đến 5 | Số sao phải từ 1 đến 5 |
+| Địa chỉ giao hàng khi đặt | tối đa 500 ký tự (bằng độ dài cột trong DB) | Địa chỉ giao hàng tối đa 500 ký tự |
+| Thời hạn mã giảm giá | thời gian kết thúc phải ở tương lai | Mã giảm giá đã hết hạn |
 | Đường dẫn ảnh, logo | để trống hoặc bắt đầu bằng http/https | Phải là đường dẫn bắt đầu bằng http:// |
 
 Các ô chỉ nhập số (giá, tồn kho, phần trăm, số điện thoại, số lượt dùng) dùng
 `<TextInput digitsOnly />` nên gõ chữ hay ký tự đặc biệt sẽ không hiện ra.
 Khi sai, ô nhập viền đỏ và có dòng chữ đỏ ngay bên dưới.
+
+Dữ liệu gửi lên không đọc được (JSON sai cú pháp, điền chữ vào ô số, gửi giá trị không có trong
+danh sách cho phép như `paymentMethod=BITCOIN` hay `?status=XYZ`) đều trả về 400 kèm thông báo
+tiếng Việt, không còn trả 500.
 
 ### Cơ chế đảm bảo dữ liệu đúng
 

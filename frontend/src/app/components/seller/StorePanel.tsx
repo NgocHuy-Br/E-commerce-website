@@ -5,8 +5,9 @@ import { api, errorMessage } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import {
+  checkAddress,
   checkImageUrl,
-  checkPhone,
+  checkStorePhone,
   checkText,
   firstError,
 } from "../../lib/validate";
@@ -51,8 +52,8 @@ export function StorePanel({
   const submit = async () => {
     const problems = {
       name: checkText(form.name, "Tên cửa hàng"),
-      phoneNumber: checkPhone(form.phoneNumber),
-      address: checkText(form.address, "Địa chỉ"),
+      phoneNumber: checkStorePhone(form.phoneNumber),
+      address: checkAddress(form.address, "Địa chỉ"),
       logoUrl: checkImageUrl(form.logoUrl),
     };
     setErrors(problems);

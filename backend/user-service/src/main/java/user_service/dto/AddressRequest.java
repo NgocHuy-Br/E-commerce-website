@@ -14,22 +14,22 @@ public record AddressRequest(
         @Pattern(regexp = "^0\\d{9}$",
                 message = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0") String phoneNumber,
 
-        // Địa chỉ cho phép chữ, số, dấu cách và các dấu thường dùng như . , - /
+        // Địa chỉ thật hay có ngoặc đơn, dấu + và #, ví dụ: Km 9+200, Toà A1 (cạnh Vincom)
         @NotBlank(message = "Số nhà và tên đường không được để trống") //
-        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/]{2,255}$",
-                message = "Số nhà và tên đường không được chứa ký tự đặc biệt") String detail,
+        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/()+#:]{2,255}$",
+                message = "Số nhà và tên đường chứa ký tự không được phép") String detail,
 
         @NotBlank(message = "Phường/xã không được để trống") //
-        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/]{2,100}$",
-                message = "Phường/xã không được chứa ký tự đặc biệt") String ward,
+        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/()]{2,100}$",
+                message = "Phường/xã chứa ký tự không được phép") String ward,
 
         @NotBlank(message = "Quận/huyện không được để trống") //
-        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/]{2,100}$",
-                message = "Quận/huyện không được chứa ký tự đặc biệt") String district,
+        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/()]{2,100}$",
+                message = "Quận/huyện chứa ký tự không được phép") String district,
 
         @NotBlank(message = "Tỉnh/thành phố không được để trống") //
-        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/]{2,100}$",
-                message = "Tỉnh/thành phố không được chứa ký tự đặc biệt") String city,
+        @Pattern(regexp = "^[\\p{L}\\p{N} .,\\-/()]{2,100}$",
+                message = "Tỉnh/thành phố chứa ký tự không được phép") String city,
 
         boolean defaultAddress) {
 }

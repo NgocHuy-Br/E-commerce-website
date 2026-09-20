@@ -6,10 +6,10 @@ import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import {
+  checkAddress,
   checkImageUrl,
   checkName,
   checkPhone,
-  checkText,
   firstError,
 } from "../../lib/validate";
 import type { Address, Profile } from "../../lib/types";
@@ -84,10 +84,10 @@ export function ProfilePanel() {
     const problems = {
       recipientName: checkName(form.recipientName, "Tên người nhận"),
       addressPhone: checkPhone(form.phoneNumber),
-      detail: checkText(form.detail, "Số nhà, đường"),
-      ward: checkText(form.ward, "Phường/xã"),
-      district: checkText(form.district, "Quận/huyện"),
-      city: checkText(form.city, "Tỉnh/thành phố"),
+      detail: checkAddress(form.detail, "Số nhà, đường"),
+      ward: checkAddress(form.ward, "Phường/xã"),
+      district: checkAddress(form.district, "Quận/huyện"),
+      city: checkAddress(form.city, "Tỉnh/thành phố"),
     };
     setErrors(problems);
     if (firstError(problems)) {
