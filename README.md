@@ -77,15 +77,34 @@ Gọi nội bộ giữa các service:
 ### Kiểm thử
 
 ```bash
-cd backend/<ten-service> && ./mvnw test
+cd backend/<ten-service> && ./mvnw test     # chạy test của một service
 ```
 
-43 test: auth-service 6, product-service 12, order-service 23,
-user-service/store-service/api-gateway mỗi service 1. Phần lớn là unit test với Mockito
-(không cần cơ sở dữ liệu), riêng `*ApplicationTests` cần MySQL đang chạy.
-Các nhóm test chính: trạng thái tồn kho sản phẩm, tính giá sau khuyến mãi, tổng tiền đơn hàng,
-tách đơn theo cửa hàng, quy tắc mã giảm giá, giỏ hàng (cộng dồn số lượng, giữ thứ tự dòng hàng,
-chặn vượt tồn kho, chặn sản phẩm đã ẩn) và quy tắc phân quyền (ADMIN loại trừ BUYER/SELLER).
+**114 test, tất cả đều pass.** Phần lớn là unit test dùng Mockito và Bean Validation nên chạy
+không cần cơ sở dữ liệu; riêng các file `*ApplicationTests` kiểm tra Spring khởi động được
+nên cần MySQL đang chạy.
+
+| Service | Số test | Các file test |
+|---|---|---|
+| auth-service | 21 | `AccountTest` (thực thể), `AuthServiceTest` (đăng ký, đăng nhập, đổi mật khẩu, thống kê), `AuthServiceRoleTest` (phân quyền), `RegisterRequestValidationTest` |
+| user-service | 12 | `UserProfileServiceTest` (hồ sơ, sổ địa chỉ), `AddressRequestValidationTest` |
+| product-service | 28 | `ProductTest` (tồn kho), `ProductServiceTest` (đăng bán, ẩn/hiện, trừ kho), `PricingServiceTest` (giá sau khuyến mãi), `ProductRequestValidationTest` |
+| store-service | 13 | `StoreServiceTest` (mở shop, duyệt, tạm ngưng), `StoreRequestValidationTest` |
+| order-service | 39 | `CartServiceTest` (giỏ hàng), `OrderServiceTest` (đặt hàng, thanh toán, huỷ đơn), `OrderWriteServiceTest` (tách đơn, mã giảm giá), `ReviewServiceTest` (đánh giá), `CustomerOrderTest`, `VoucherTest` |
+| api-gateway | 1 | `ApiGatewayApplicationTests` |
+
+Một số trường hợp quan trọng được kiểm tra:
+
+- Trừ kho hết thì sản phẩm tự chuyển sang hết hàng; trừ quá số lượng còn lại thì bị chặn.
+- Giỏ hàng cộng dồn số lượng, giữ nguyên thứ tự dòng hàng, chặn vượt tồn kho.
+- Đặt hàng thất bại ở bước ghi đơn thì **hoàn lại phần kho đã trừ và không xoá giỏ hàng**.
+- Huỷ đơn hoàn kho, hoàn lượt mã giảm giá và chuyển thanh toán sang đã hoàn tiền.
+- Đơn đang giao hoặc đã giao thì không huỷ được; không nhảy bậc trạng thái.
+- Người bán không xử lý được đơn của cửa hàng khác.
+- Chỉ đánh giá được sau khi nhận hàng, đúng đơn của mình, mỗi sản phẩm một lần.
+- Quyền ADMIN loại trừ BUYER/SELLER; tài khoản khách luôn giữ quyền BUYER.
+- Tạm ngưng cửa hàng thì ẩn toàn bộ sản phẩm; cửa hàng bị từ chối sửa lại thì về chờ duyệt.
+- Các ràng buộc dữ liệu nhập (số điện thoại, tên, giá, mã giảm giá) đúng như bảng bên dưới.
 
 ### Kiểm tra dữ liệu nhập (validation)
 
