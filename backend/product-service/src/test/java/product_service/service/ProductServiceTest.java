@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -19,12 +20,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import product_service.dto.ProductRequest;
 import product_service.dto.ProductResponse;
+import product_service.dto.PromotionCampaignRequest;
 import product_service.entity.Category;
 import product_service.entity.Product;
 import product_service.entity.ProductStatus;
+import product_service.entity.Promotion;
 import product_service.repository.CategoryRepository;
 import product_service.repository.ProductRepository;
 import product_service.repository.PromotionRepository;
@@ -182,5 +186,45 @@ class ProductServiceTest {
         assertThat(result).hasSize(1);
         verify(productRepository).search(org.mockito.ArgumentMatchers.eq(ProductStatus.ACTIVE), any(), any(),
                 any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Một campaign áp dụng được cho nhiều sản phẩm cùng tên và thời hạn")
+    void createsOneNamedCampaignForMultipleOwnedProducts() {
+        Product first = product(5);
+        Product second = product(8);
+        ReflectionTestUtils.setField(first, "id", 1L);
+        ReflectionTestUtils.setField(second, "id", 2L);
+        when(productRepository.findByIdAndSellerId(1L, 2L)).thenReturn(Optional.of(first));
+        when(productRepository.findByIdAndSellerId(2L, 2L)).thenReturn(Optional.of(second));
+        when(promotionRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Promotion> promotions = invocation.getArgument(0);
+            return promotions;
+        });
+        Instant startsAt = Instant.now().plusSeconds(60);
+        Instant endsAt = startsAt.plusSeconds(3600);
+
+        var response = productService.createPromotionCampaign(2L,
+                new PromotionCampaignRequest("Ưu đãi tháng 10", List.of(1L, 2L), 15, startsAt, endsAt));
+
+        assertThat(response.name()).isEqualTo("Ưu đãi tháng 10");
+        assertThat(response.products()).extracting("productId").containsExactly(1L, 2L);
+        assertThat(response.products()).extracting("productName").containsExactly("Tai nghe", "Tai nghe");
+    }
+
+    @Test
+    @DisplayName("Huỷ campaign sẽ huỷ tất cả khuyến mãi gắn với campaign đó")
+    void cancelsEveryPromotionInCampaign() {
+        Instant startsAt = Instant.now().minusSeconds(60);
+        Instant endsAt = Instant.now().plusSeconds(3600);
+        Promotion first = new Promotion(product(5), "campaign-1", "Sale", 10, startsAt, endsAt);
+        Promotion second = new Promotion(product(8), "campaign-1", "Sale", 10, startsAt, endsAt);
+        when(promotionRepository.findAllByCampaignIdAndProductSellerIdOrderByIdAsc("campaign-1", 2L))
+                .thenReturn(List.of(first, second));
+
+        productService.cancelPromotionCampaign("campaign-1", 2L);
+
+        assertThat(first.isCancelled()).isTrue();
+        assertThat(second.isCancelled()).isTrue();
     }
 }

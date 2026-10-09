@@ -133,10 +133,7 @@ export default function CartPage() {
 
   return (
     <>
-      <PageHeader
-        title="Giỏ hàng"
-        description={`${items.length} sản phẩm trong giỏ`}
-      />
+      <PageHeader title="Giỏ hàng" />
 
       {items.length === 0 ? (
         <Card>

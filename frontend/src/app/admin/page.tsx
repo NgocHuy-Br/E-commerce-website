@@ -55,7 +55,6 @@ export default function AdminPage() {
     <>
       <PageHeader
         title="Quản trị nền tảng"
-        description="Tài khoản, cửa hàng, danh mục, sản phẩm, đơn hàng và mã giảm giá."
         back={false}
       />
 

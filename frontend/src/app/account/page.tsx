@@ -52,7 +52,6 @@ export default function AccountPage() {
     <>
       <PageHeader
         title="Tài khoản của tôi"
-        description={session.email}
         action={
           <div className="flex flex-wrap gap-1">
             {session.roles.map((role) => (

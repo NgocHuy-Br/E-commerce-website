@@ -2,8 +2,13 @@ package product_service.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +17,8 @@ import product_service.dto.CatalogStatsResponse;
 import product_service.dto.CategoryRequest;
 import product_service.dto.ProductRequest;
 import product_service.dto.ProductResponse;
+import product_service.dto.PromotionCampaignRequest;
+import product_service.dto.PromotionCampaignResponse;
 import product_service.dto.PromotionRequest;
 import product_service.dto.PromotionResponse;
 import product_service.entity.Category;
@@ -123,7 +130,8 @@ public class ProductService {
         if (quantity < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng phải lớn hơn 0");
         }
-        // Khoá dòng sản phẩm để hai người mua cùng lúc không trừ kho trên cùng một giá trị cũ.
+        // Khoá dòng sản phẩm để hai người mua cùng lúc không trừ kho trên cùng một giá
+        // trị cũ.
         Product product = productRepository.findByIdForUpdate(productId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm"));
         try {
@@ -193,20 +201,54 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<PromotionResponse> getPromotionsBySeller(Long sellerId) {
-        return promotionRepository.findAllByProductSellerIdOrderByIdDesc(sellerId).stream()
-                .map(this::toPromotionResponse).toList();
+    public List<PromotionCampaignResponse> getPromotionsBySeller(Long sellerId) {
+        Map<String, List<Promotion>> campaigns = promotionRepository
+                .findAllByProductSellerIdOrderByIdDesc(sellerId).stream()
+                .collect(Collectors.groupingBy(
+                        promotion -> promotion.getCampaignId() == null
+                                ? "legacy-" + promotion.getId()
+                                : promotion.getCampaignId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        return campaigns.values().stream().map(this::toCampaignResponse).toList();
+    }
+
+    @Transactional
+    public PromotionCampaignResponse createPromotionCampaign(Long sellerId, PromotionCampaignRequest request) {
+        validatePromotionPeriod(request.startsAt(), request.endsAt());
+        List<Promotion> campaign = new ArrayList<>();
+        String campaignId = UUID.randomUUID().toString();
+        for (Long productId : new LinkedHashSet<>(request.productIds())) {
+            Product product = findOwnedProduct(productId, sellerId);
+            campaign.add(new Promotion(product, campaignId, request.name().trim(), request.discountPercent(),
+                    request.startsAt(), request.endsAt()));
+        }
+        return toCampaignResponse(promotionRepository.saveAll(campaign));
+    }
+
+    @Transactional
+    public void cancelPromotionCampaign(String campaignId, Long sellerId) {
+        List<Promotion> campaign;
+        if (campaignId.startsWith("legacy-")) {
+            try {
+                campaign = promotionRepository.findByIdAndProductSellerId(
+                        Long.parseLong(campaignId.substring("legacy-".length())), sellerId)
+                        .map(List::of).orElseGet(List::of);
+            } catch (NumberFormatException error) {
+                campaign = List.of();
+            }
+        } else {
+            campaign = promotionRepository.findAllByCampaignIdAndProductSellerIdOrderByIdAsc(campaignId, sellerId);
+        }
+        if (campaign.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khuyến mãi");
+        }
+        campaign.forEach(Promotion::cancel);
     }
 
     @Transactional
     public PromotionResponse createPromotion(Long productId, Long sellerId, PromotionRequest request) {
-        if (!request.endsAt().isAfter(request.startsAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Thời gian kết thúc khuyến mãi phải sau thời gian bắt đầu");
-        }
-        if (request.endsAt().isBefore(Instant.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khuyến mãi đã hết hạn");
-        }
+        validatePromotionPeriod(request.startsAt(), request.endsAt());
         Product product = findOwnedProduct(productId, sellerId);
         return toPromotionResponse(promotionRepository
                 .save(new Promotion(product, request.discountPercent(), request.startsAt(), request.endsAt())));
@@ -214,8 +256,19 @@ public class ProductService {
 
     @Transactional
     public void deletePromotion(Long promotionId, Long sellerId) {
-        promotionRepository.delete(promotionRepository.findByIdAndProductSellerId(promotionId, sellerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khuyến mãi")));
+        promotionRepository.findByIdAndProductSellerId(promotionId, sellerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khuyến mãi"))
+                .cancel();
+    }
+
+    private void validatePromotionPeriod(Instant startsAt, Instant endsAt) {
+        if (!endsAt.isAfter(startsAt)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Thời gian kết thúc khuyến mãi phải sau thời gian bắt đầu");
+        }
+        if (endsAt.isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khuyến mãi đã hết hạn");
+        }
     }
 
     private Product findProduct(Long id) {
@@ -252,7 +305,31 @@ public class ProductService {
     }
 
     private PromotionResponse toPromotionResponse(Promotion promotion) {
-        return new PromotionResponse(promotion.getId(), promotion.getProduct().getId(), promotion.getDiscountPercent(),
-                promotion.getStartsAt(), promotion.getEndsAt());
+        return new PromotionResponse(promotion.getId(), promotion.getProduct().getId(),
+                campaignId(promotion), campaignName(promotion), promotion.getDiscountPercent(),
+                promotion.getStartsAt(), promotion.getEndsAt(), promotion.isCancelled());
+    }
+
+    private PromotionCampaignResponse toCampaignResponse(List<Promotion> promotions) {
+        Promotion first = promotions.get(0);
+        List<PromotionCampaignResponse.ProductItem> products = promotions.stream()
+                .map(Promotion::getProduct)
+                .collect(Collectors.toMap(Product::getId, product -> product, (left, right) -> left,
+                        LinkedHashMap::new))
+                .values().stream()
+                .map(product -> new PromotionCampaignResponse.ProductItem(product.getId(), product.getName()))
+                .toList();
+        return new PromotionCampaignResponse(campaignId(first), campaignName(first), first.getDiscountPercent(),
+                first.getStartsAt(), first.getEndsAt(), promotions.stream().allMatch(Promotion::isCancelled), products);
+    }
+
+    private String campaignId(Promotion promotion) {
+        return promotion.getCampaignId() == null ? "legacy-" + promotion.getId() : promotion.getCampaignId();
+    }
+
+    private String campaignName(Promotion promotion) {
+        return promotion.getCampaignName() == null || promotion.getCampaignName().isBlank()
+                ? promotion.getProduct().getName()
+                : promotion.getCampaignName();
     }
 }

@@ -17,10 +17,14 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
 
     Optional<Promotion> findByIdAndProductSellerId(Long id, Long sellerId);
 
+    List<Promotion> findAllByCampaignIdAndProductSellerIdOrderByIdAsc(String campaignId, Long sellerId);
+
     @Query("""
             select product.id as productId, max(promotion.discountPercent) as discountPercent
             from Promotion promotion join promotion.product product
-            where product.id in :productIds and promotion.startsAt <= :now and promotion.endsAt > :now
+                        where product.id in :productIds
+                            and (promotion.cancelled = false or promotion.cancelled is null)
+                            and promotion.startsAt <= :now and promotion.endsAt > :now
             group by product.id
             """)
     List<ActiveDiscount> findActiveDiscounts(

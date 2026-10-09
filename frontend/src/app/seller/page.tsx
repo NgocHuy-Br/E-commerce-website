@@ -2,12 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { ProductManager } from "../components/seller/ProductManager";
+import { PromotionManager } from "../components/seller/PromotionManager";
 import { SellerOrders } from "../components/seller/SellerOrders";
 import { StorePanel } from "../components/seller/StorePanel";
 import {
   AdminNotAllowed,
   Card,
-  PageHeader,
   RequireLogin,
 } from "../components/ui";
 import { api } from "../lib/api";
@@ -15,18 +15,20 @@ import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
 import type { Store } from "../lib/types";
 
-type SellerTab = "store" | "products" | "orders";
+type SellerTab = "store" | "products" | "promotions" | "orders";
 
 const tabs: { key: SellerTab; label: string }[] = [
-  { key: "store", label: "Cửa hàng" },
-  { key: "products", label: "Đăng bán & khuyến mãi" },
-  { key: "orders", label: "Đơn hàng của shop" },
+  { key: "store", label: "Cửa hàng của tôi" },
+  { key: "products", label: "Sản phẩm" },
+  { key: "promotions", label: "Khuyến mãi" },
+  { key: "orders", label: "Quản lý đơn hàng" },
 ];
 
 export default function SellerPage() {
   const { token, hasRole, isAdmin } = useSession();
   const [tab, setTab] = useState<SellerTab>("store");
   const [store, setStore] = useState<Store | null>(null);
+  const [promotionProductId, setPromotionProductId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -38,7 +40,6 @@ export default function SellerPage() {
   if (!token) {
     return (
       <>
-        <PageHeader title="Kênh người bán" back={false} />
         <RequireLogin
           next="/seller"
           message="Đăng nhập để mở cửa hàng và đăng bán."
@@ -50,7 +51,6 @@ export default function SellerPage() {
   if (isAdmin) {
     return (
       <>
-        <PageHeader title="Kênh người bán" back={false} />
         <AdminNotAllowed feature="chức năng bán hàng" />
       </>
     );
@@ -58,22 +58,18 @@ export default function SellerPage() {
 
   return (
     <>
-      <PageHeader
-        title="Kênh người bán"
-        description="Quản lý cửa hàng, sản phẩm, khuyến mãi và đơn hàng của shop."
-        back={false}
-      />
-
-      <div className="mb-5 flex flex-wrap gap-2 border-b border-stone-200 pb-3">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-stone-200 pb-2" role="tablist" aria-label="Kênh người bán">
         {tabs.map((item) => (
           <button
             key={item.key}
             type="button"
+            role="tab"
+            aria-selected={tab === item.key}
             onClick={() => setTab(item.key)}
-            className={`px-3 py-2 text-sm font-medium transition ${
+            className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition ${
               tab === item.key
-                ? "bg-teal-700 text-white"
-                : "border border-stone-300 text-slate-700 hover:bg-stone-100"
+                ? "border-teal-700 text-teal-800"
+                : "border-transparent text-slate-600 hover:border-stone-300 hover:text-slate-900"
             }`}
           >
             {item.label}
@@ -88,15 +84,25 @@ export default function SellerPage() {
           onStoreChange={setStore}
         />
       )}
-      {tab === "products" && <ProductManager store={store} />}
+      {tab === "products" && (
+        <ProductManager
+          store={store}
+          onPromotion={(productId) => {
+            setPromotionProductId(productId);
+            setTab("promotions");
+          }}
+        />
+      )}
+      {tab === "promotions" && (
+        <PromotionManager store={store} initialProductId={promotionProductId} />
+      )}
       {tab === "orders" &&
         (hasRole("SELLER") ? (
           <SellerOrders />
         ) : (
-          <Card>
+          <Card title="Quản lý đơn hàng">
             <p className="text-sm text-slate-500">
-              Bạn cần được cấp quyền SELLER (sau khi quản trị viên duyệt cửa
-              hàng) để xem đơn hàng.
+              Cửa hàng cần được admin duyệt để xem và xử lý đơn hàng.
             </p>
           </Card>
         ))}

@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "promotions")
@@ -21,6 +22,14 @@ public class Promotion {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @Column(length = 36)
+    private String campaignId;
+
+    @Column(length = 200)
+    private String campaignName;
+
+    private Boolean cancelled = false;
 
     @Column(nullable = false)
     private int discountPercent;
@@ -35,7 +44,14 @@ public class Promotion {
     }
 
     public Promotion(Product product, int discountPercent, Instant startsAt, Instant endsAt) {
+        this(product, UUID.randomUUID().toString(), product.getName(), discountPercent, startsAt, endsAt);
+    }
+
+    public Promotion(Product product, String campaignId, String campaignName, int discountPercent,
+            Instant startsAt, Instant endsAt) {
         this.product = product;
+        this.campaignId = campaignId;
+        this.campaignName = campaignName;
         this.discountPercent = discountPercent;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
@@ -49,6 +65,18 @@ public class Promotion {
         return product;
     }
 
+    public String getCampaignId() {
+        return campaignId;
+    }
+
+    public String getCampaignName() {
+        return campaignName;
+    }
+
+    public boolean isCancelled() {
+        return Boolean.TRUE.equals(cancelled);
+    }
+
     public int getDiscountPercent() {
         return discountPercent;
     }
@@ -59,5 +87,9 @@ public class Promotion {
 
     public Instant getEndsAt() {
         return endsAt;
+    }
+
+    public void cancel() {
+        cancelled = true;
     }
 }

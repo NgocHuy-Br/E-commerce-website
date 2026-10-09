@@ -114,12 +114,12 @@ export function checkVoucherCode(value: string): string | null {
     : "Mã giảm giá chỉ gồm chữ và số, từ 3 đến 20 ký tự";
 }
 
-/** Đường dẫn ảnh không bắt buộc, nhưng nếu nhập thì phải là http/https. */
+/** Ảnh có thể là URL https hoặc tệp đã tải lên ứng dụng. */
 export function checkImageUrl(value: string): string | null {
   if (value.trim() === "") return null;
-  return /^https?:\/\/\S+$/.test(value.trim())
+  return (/^https?:\/\/\S+$/.test(value.trim()) || /^\/uploads\/[A-Za-z0-9._-]+$/.test(value.trim()))
     ? null
-    : "Đường dẫn ảnh phải bắt đầu bằng http:// hoặc https://";
+    : "Ảnh tải lên không hợp lệ.";
 }
 
 /** Gom các lỗi lại; trả về lỗi đầu tiên tìm thấy để hiện thông báo chung. */

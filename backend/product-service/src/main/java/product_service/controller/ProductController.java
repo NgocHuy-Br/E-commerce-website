@@ -24,6 +24,8 @@ import product_service.dto.CatalogStatsResponse;
 import product_service.dto.CategoryRequest;
 import product_service.dto.ProductRequest;
 import product_service.dto.ProductResponse;
+import product_service.dto.PromotionCampaignRequest;
+import product_service.dto.PromotionCampaignResponse;
 import product_service.dto.PromotionRequest;
 import product_service.dto.PromotionResponse;
 import product_service.entity.Category;
@@ -140,7 +142,10 @@ public class ProductController {
         return productService.releaseStock(productId, quantity);
     }
 
-    /** Quản trị viên tạm ngưng hoặc duyệt lại cửa hàng thì ẩn/mở toàn bộ sản phẩm của cửa hàng đó. */
+    /**
+     * Quản trị viên tạm ngưng hoặc duyệt lại cửa hàng thì ẩn/mở toàn bộ sản phẩm
+     * của cửa hàng đó.
+     */
     @PutMapping("/internal/store/{storeId}/visibility")
     public java.util.Map<String, Object> setStoreVisibility(@PathVariable Long storeId,
             @RequestParam boolean visible, @RequestHeader("X-Internal-Key") String requestKey) {
@@ -156,8 +161,25 @@ public class ProductController {
 
     @GetMapping("/mine/promotions")
     @PreAuthorize("hasRole('SELLER')")
-    public List<PromotionResponse> getMyPromotions(@AuthenticationPrincipal AuthPrincipal principal) {
+    public List<PromotionCampaignResponse> getMyPromotions(@AuthenticationPrincipal AuthPrincipal principal) {
         return productService.getPromotionsBySeller(principal.userId());
+    }
+
+    @PostMapping("/promotions/campaigns")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('SELLER')")
+    public PromotionCampaignResponse createPromotionCampaign(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody PromotionCampaignRequest request) {
+        return productService.createPromotionCampaign(principal.userId(), request);
+    }
+
+    @DeleteMapping("/promotions/campaigns/{campaignId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SELLER')")
+    public void cancelPromotionCampaign(@PathVariable String campaignId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        productService.cancelPromotionCampaign(campaignId, principal.userId());
     }
 
     @PostMapping("/{productId}/promotions")

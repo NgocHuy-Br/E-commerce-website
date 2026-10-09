@@ -13,6 +13,7 @@ import {
 } from "../../lib/validate";
 import type { Store } from "../../lib/types";
 import { Badge, Button, Card, Field, TextArea, TextInput } from "../ui";
+import { ImageUpload } from "../ImageUpload";
 
 const statusTone: Record<string, "success" | "warning" | "danger"> = {
   ACTIVE: "success",
@@ -46,6 +47,7 @@ export function StorePanel({
     phoneNumber: store?.phoneNumber ?? "",
     logoUrl: store?.logoUrl ?? "",
   });
+  const [editing, setEditing] = useState(!store);
 
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
@@ -74,6 +76,7 @@ export function StorePanel({
         },
       );
       onStoreChange(saved);
+      setEditing(false);
       notify(
         store
           ? "Đã cập nhật cửa hàng."
@@ -87,16 +90,27 @@ export function StorePanel({
 
   return (
     <Card
-      title="Cửa hàng của tôi"
-      action={
-        store ? (
-          <Badge tone={statusTone[store.status] ?? "neutral"}>
-            {statusLabels[store.status] ?? store.status}
-          </Badge>
-        ) : (
-          <Badge tone="neutral">Chưa có cửa hàng</Badge>
-        )
+      title={
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-teal-800">Cửa hàng của tôi</p>
+          {store && <h2 className="mt-1 text-xl font-semibold text-slate-900">{store.name}</h2>}
+        </div>
       }
+      action={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {store ? (
+            <Badge tone={statusTone[store.status] ?? "neutral"}>
+              {statusLabels[store.status] ?? store.status}
+            </Badge>
+          ) : (
+            <Badge tone="neutral">Chưa có cửa hàng</Badge>
+          )}
+          {store && !editing && (
+            <Button variant="ghost" onClick={() => setEditing(true)}>Chỉnh sửa</Button>
+          )}
+        </div>
+      }
+      className="overflow-hidden border-t-4 border-t-teal-700"
     >
       {!store && (
         <p className="mb-3 text-sm text-slate-600">
@@ -104,6 +118,24 @@ export function StorePanel({
           đăng bán.
         </p>
       )}
+      {!editing && store ? (
+        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_160px]">
+          <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+            <StoreDetail label="Địa chỉ" value={store.address} />
+            <StoreDetail label="Số điện thoại" value={store.phoneNumber} />
+            <div className="sm:col-span-2">
+              <StoreDetail label="Giới thiệu" value={store.description || "Chưa có giới thiệu."} />
+            </div>
+          </div>
+          <div className="flex aspect-square items-center justify-center overflow-hidden border border-stone-200 bg-stone-100 text-sm text-slate-400">
+            {store.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={store.logoUrl} alt={store.name} className="h-full w-full object-cover" />
+            ) : "Chưa có logo"}
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Tên cửa hàng" error={errors.name}>
           <TextInput
@@ -127,13 +159,13 @@ export function StorePanel({
             invalid={Boolean(errors.address)}
           />
         </Field>
-        <Field label="Logo (URL)" error={errors.logoUrl}>
-          <TextInput
-            value={form.logoUrl}
-            onChange={(value) => setForm({ ...form, logoUrl: value })}
-            invalid={Boolean(errors.logoUrl)}
-          />
-        </Field>
+      </div>
+      <div className="mt-3">
+        <ImageUpload
+          label="Logo cửa hàng"
+          value={form.logoUrl}
+          onChange={(logoUrl) => setForm({ ...form, logoUrl })}
+        />
       </div>
       <div className="mt-3">
         <Field label="Giới thiệu">
@@ -143,9 +175,35 @@ export function StorePanel({
           />
         </Field>
       </div>
-      <Button className="mt-4" onClick={submit}>
-        {store ? "Lưu thay đổi" : "Gửi yêu cầu mở shop"}
-      </Button>
+      <div className="mt-4 flex gap-2">
+        <Button onClick={submit}>
+          {store ? "Lưu thay đổi" : "Gửi yêu cầu mở shop"}
+        </Button>
+        {store && (
+          <Button variant="ghost" onClick={() => {
+            setForm({
+              name: store.name,
+              description: store.description ?? "",
+              address: store.address,
+              phoneNumber: store.phoneNumber,
+              logoUrl: store.logoUrl ?? "",
+            });
+            setErrors({});
+            setEditing(false);
+          }}>Huỷ</Button>
+        )}
+      </div>
+      </>
+      )}
     </Card>
+  );
+}
+
+function StoreDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{value}</p>
+    </div>
   );
 }

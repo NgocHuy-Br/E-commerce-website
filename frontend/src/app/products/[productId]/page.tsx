@@ -58,7 +58,7 @@ export default function ProductDetailPage() {
     const now = Date.now();
     setPromotions(
       promotionData.filter(
-        (promotion) => new Date(promotion.endsAt).getTime() > now,
+        (promotion) => !promotion.cancelled && new Date(promotion.endsAt).getTime() > now,
       ),
     );
     setReviews(reviewData);

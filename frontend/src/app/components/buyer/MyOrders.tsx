@@ -49,7 +49,6 @@ export function MyOrders() {
 
   return (
     <Card
-      title={`Đơn hàng của tôi (${orders.length})`}
       action={
         <Button variant="ghost" onClick={load}>
           Làm mới

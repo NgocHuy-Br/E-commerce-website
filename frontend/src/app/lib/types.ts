@@ -72,9 +72,22 @@ export type Product = {
 export type Promotion = {
   id: number;
   productId: number;
+  campaignId: string;
+  name: string;
   discountPercent: number;
   startsAt: string;
   endsAt: string;
+  cancelled: boolean;
+};
+
+export type PromotionCampaign = {
+  campaignId: string;
+  name: string;
+  discountPercent: number;
+  startsAt: string;
+  endsAt: string;
+  cancelled: boolean;
+  products: { productId: number; productName: string }[];
 };
 
 export type Store = {

@@ -78,7 +78,7 @@ export function ProductCatalog() {
 
   return (
     <div className="space-y-5">
-      <Card title="Tìm kiếm hàng hoá">
+      <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Từ khoá">
             <TextInput
