@@ -41,6 +41,7 @@ function ChevronDownIcon() {
 
 const customerNavItems = [
   { href: "/orders", label: "Đơn hàng của tôi" },
+  { href: "/account/wallet", label: "Ví của tôi" },
   { href: "/seller", label: "Kênh người bán" },
 ];
 
@@ -57,21 +58,6 @@ export function Header() {
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const visibleNotificationCount = notifications.length > 0 ? Math.min(notifications.length, 9) : 0;
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
-        setNotificationsOpen(false);
-      }
-      if (accountRef.current && !accountRef.current.contains(target)) {
-        setAccountOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
 
   const loadNotifications = useCallback(async () => {
     if (!token) {
@@ -115,10 +101,35 @@ export function Header() {
     setNotifications(next.slice(0, 8));
   }, [hasRole, isAdmin, token]);
 
+  useEffect(() => {
+    if (!session || !token) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session, token, loadNotifications]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setNotificationsOpen(false);
+      }
+      if (accountRef.current && !accountRef.current.contains(target)) {
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   // Quản trị viên chỉ thấy khu quản trị; khách thấy đơn hàng và kênh người bán.
   const items = [
     { href: "/", label: "Trang chủ" },
-    ...(isCustomer ? customerNavItems : []),
+    ...(session && !isAdmin ? customerNavItems : isCustomer ? customerNavItems : []),
     ...(isAdmin ? [{ href: "/admin", label: "Quản trị" }] : []),
   ];
   const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
@@ -243,10 +254,10 @@ export function Header() {
                     <p className="text-xs text-slate-500">{session.roles.join(", ")}</p>
                   </div>
                   <div className="py-2">
-                    <Link href="/account" onClick={() => setAccountOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-stone-100">
+                    <Link href="/account/profile" onClick={() => setAccountOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-stone-100">
                       Thông tin cá nhân
                     </Link>
-                    <Link href="/account" onClick={() => setAccountOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-stone-100">
+                    <Link href="/account/security" onClick={() => setAccountOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-stone-100">
                       Mật khẩu & bảo mật
                     </Link>
                     <button

@@ -113,7 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const visibleItems = token && !isAdmin ? items : [];
     return {
       items: visibleItems,
-      count: visibleItems.reduce((total, item) => total + item.quantity, 0),
+      count: visibleItems.length,
       subtotal: visibleItems.reduce(
         (total, item) => total + item.unitPrice * item.quantity,
         0,
