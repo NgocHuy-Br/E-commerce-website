@@ -48,6 +48,17 @@ export function SellerOrders() {
     (total, order) => total + order.items.reduce((quantity, item) => quantity + item.quantity, 0),
     0,
   );
+  const productSales = Object.values(
+    completedOrders.reduce<Record<string, { name: string; quantity: number }>>((acc, order) => {
+      for (const item of order.items) {
+        const key = item.productId.toString();
+        const current = acc[key] ?? { name: item.productName, quantity: 0 };
+        current.quantity += item.quantity;
+        acc[key] = current;
+      }
+      return acc;
+    }, {}),
+  ).sort((left, right) => right.quantity - left.quantity);
   const filteredOrders = statusFilter
     ? orders.filter((order) => order.status === statusFilter)
     : orders;
@@ -74,6 +85,20 @@ export function SellerOrders() {
         <StatTile label="Doanh thu tháng" value={formatCurrency(monthlyOrders.reduce((total, order) => total + order.totalAmount, 0))} />
         <StatTile label="Doanh thu năm" value={formatCurrency(yearlyOrders.reduce((total, order) => total + order.totalAmount, 0))} />
       </div>
+      <Card title="Sản phẩm đã bán" className="border-t-4 border-t-emerald-500">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {productSales.length === 0 ? (
+            <p className="text-sm text-slate-500">Chưa có sản phẩm nào được giao thành công.</p>
+          ) : (
+            productSales.slice(0, 6).map((item) => (
+              <div key={item.name} className="rounded border border-stone-200 bg-stone-50 p-3">
+                <p className="font-medium text-slate-900">{item.name}</p>
+                <p className="mt-1 text-sm text-slate-600">Đã bán: <span className="font-semibold text-emerald-700">{item.quantity}</span></p>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
       <Card
         title="Quản lý đơn hàng"
         action={

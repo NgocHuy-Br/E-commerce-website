@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { keepDigitsOnly } from "../lib/validate";
 
 export function Card({
@@ -106,6 +106,8 @@ export function TextInput({
   onEnter,
   digitsOnly = false,
   invalid = false,
+  showToggle = false,
+  readOnly = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -115,23 +117,42 @@ export function TextInput({
   /** Ô chỉ cho nhập số: mọi ký tự khác chữ số đều bị bỏ ngay khi gõ. */
   digitsOnly?: boolean;
   invalid?: boolean;
+  /** Hiển thị nút ẩn/hiện cho trường password. */
+  showToggle?: boolean;
+  readOnly?: boolean;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPasswordInput = type === "password" && showToggle;
+
   return (
-    <input
-      type={type}
-      value={value}
-      placeholder={placeholder}
-      inputMode={digitsOnly ? "numeric" : undefined}
-      onChange={(event) =>
-        onChange(
-          digitsOnly ? keepDigitsOnly(event.target.value) : event.target.value,
-        )
-      }
-      onKeyDown={(event) => {
-        if (event.key === "Enter" && onEnter) onEnter();
-      }}
-      className={`${controlClass} ${invalid ? "border-rose-500" : ""}`}
-    />
+    <div className="relative">
+      <input
+        type={isPasswordInput && showPassword ? "text" : type}
+        value={value}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        inputMode={digitsOnly ? "numeric" : undefined}
+        onChange={(event) =>
+          onChange(
+            digitsOnly ? keepDigitsOnly(event.target.value) : event.target.value,
+          )
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && onEnter) onEnter();
+        }}
+        className={`${controlClass} ${isPasswordInput ? "pr-10" : ""} ${invalid ? "border-rose-500" : ""}`}
+      />
+      {isPasswordInput && (
+        <button
+          type="button"
+          onClick={() => setShowPassword((current) => !current)}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-xs font-medium text-slate-500 hover:text-slate-700"
+          aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+        >
+          {showPassword ? "Ẩn" : "Hiện"}
+        </button>
+      )}
+    </div>
   );
 }
 

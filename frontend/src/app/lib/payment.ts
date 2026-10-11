@@ -32,6 +32,12 @@ export const PAYMENT_METHODS: {
     description: "Hỗ trợ Visa, Mastercard, JCB.",
     payOnDelivery: false,
   },
+  {
+    value: "WALLET",
+    label: "Ví của tôi",
+    description: "Thanh toán từ số dư ví đã có trên hệ thống.",
+    payOnDelivery: false,
+  },
 ];
 
 export function paymentMethodLabel(

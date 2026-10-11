@@ -5,7 +5,7 @@ export type StoreStatus = "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
 export type OrderStatus =
   "PENDING" | "CONFIRMED" | "PACKING" | "SHIPPING" | "DELIVERED" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
-export type PaymentMethod = "COD" | "BANK_TRANSFER" | "MOMO" | "CREDIT_CARD";
+export type PaymentMethod = "COD" | "BANK_TRANSFER" | "MOMO" | "CREDIT_CARD" | "WALLET";
 
 export type AuthResponse = {
   accessToken: string;
@@ -64,9 +64,38 @@ export type Product = {
   discountPercent: number;
   effectivePrice: number;
   stockQuantity: number;
+  soldQuantity: number;
   imageUrl: string | null;
   status: ProductStatus;
   hiddenByStore: boolean;
+};
+
+export type WalletTransactionType =
+  | "TOPUP"
+  | "WITHDRAW"
+  | "ORDER_PAYMENT"
+  | "ORDER_REFUND"
+  | "SELLER_SETTLEMENT"
+  | "COMMISSION"
+  | "ADJUSTMENT";
+
+export type WalletTransactionStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+
+export type WalletTransaction = {
+  id: number;
+  type: WalletTransactionType;
+  amount: number;
+  status: WalletTransactionStatus;
+  method: string;
+  note: string;
+  createdAt: string;
+};
+
+export type Wallet = {
+  balance: number;
+  currency: string;
+  pendingWithdraw: number;
+  transactions: WalletTransaction[];
 };
 
 export type Promotion = {

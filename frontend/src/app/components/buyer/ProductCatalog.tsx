@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { api, errorMessage, query } from "../../lib/api";
 import { useCart } from "../../lib/cart";
 import { formatCurrency } from "../../lib/format";
+import { soldCountForProduct } from "../../lib/mock";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
@@ -202,7 +203,7 @@ export function ProductCatalog() {
                   )}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Còn {product.stockQuantity} sản phẩm
+                  Còn {product.stockQuantity} sản phẩm · Đã bán {product.soldQuantity ?? soldCountForProduct(product.id)}
                 </p>
                 <div className="mt-3 flex gap-2">
                   {!isAdmin && (

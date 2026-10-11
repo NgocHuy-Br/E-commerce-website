@@ -21,6 +21,7 @@ import { useNotify } from "../../lib/toast";
 import type { Order, OrderItem, PaymentMethod } from "../../lib/types";
 import { Stars } from "../Stars";
 import { Badge, Button, Card, Empty, Field, Modal, TextArea } from "../ui";
+import { chargeWallet, readWallet } from "../../lib/mock";
 
 const statusLabels = ORDER_STATUS_LABELS;
 const paymentLabels = PAYMENT_STATUS_LABELS;
@@ -239,6 +240,14 @@ function PaymentModal({
   const submit = async () => {
     setSending(true);
     try {
+      if (method === "WALLET") {
+        const wallet = readWallet();
+        if (wallet.balance < order.totalAmount) {
+          notify("Số dư ví không đủ để thanh toán đơn này.", "error");
+          return;
+        }
+        chargeWallet(order.totalAmount);
+      }
       await api<Order>(`/api/orders/${order.id}/pay`, {
         method: "PUT",
         token,

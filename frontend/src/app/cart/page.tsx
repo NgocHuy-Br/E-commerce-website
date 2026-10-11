@@ -18,6 +18,7 @@ import {
 import { api, errorMessage } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { formatCurrency } from "../lib/format";
+import { readWallet, chargeWallet } from "../lib/mock";
 import { PAYMENT_METHODS } from "../lib/payment";
 import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
@@ -104,8 +105,19 @@ export default function CartPage() {
       notify("Hãy chọn hoặc nhập địa chỉ giao hàng.", "error");
       return;
     }
+    const payableAmount = subtotal - estimatedDiscount;
+    if (paymentMethod === "WALLET") {
+      const wallet = readWallet();
+      if (wallet.balance < payableAmount) {
+        notify(`Số dư ví không đủ. Cần ${formatCurrency(payableAmount)} nhưng hiện chỉ có ${formatCurrency(wallet.balance)}.`, "error");
+        return;
+      }
+    }
     setPlacing(true);
     try {
+      if (paymentMethod === "WALLET") {
+        chargeWallet(payableAmount);
+      }
       const orders = await api<Order[]>("/api/orders/checkout", {
         method: "POST",
         token,

@@ -111,6 +111,7 @@ function LoginForm() {
               placeholder="Ít nhất 6 ký tự"
               onEnter={submit}
               invalid={Boolean(passwordError)}
+              showToggle
             />
           </Field>
         </div>
