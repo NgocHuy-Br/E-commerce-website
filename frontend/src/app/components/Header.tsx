@@ -9,7 +9,7 @@ import { useSession } from "../lib/session";
 import { useNotify } from "../lib/toast";
 import { ORDER_STATUS_LABELS } from "../lib/order";
 import { rolesSummary } from "../lib/labels";
-import type { AuthResponse, Order, Store, WalletTransaction } from "../lib/types";
+import type { AuthResponse, Order, Profile, Store, WalletTransaction } from "../lib/types";
 import { useReadNotifications } from "../lib/notificationsRead";
 
 type NotificationItem = { id: string; title: string; detail: string; href: string };
@@ -58,6 +58,7 @@ export function Header() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [fullName, setFullName] = useState<string | null>(null);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const unreadNotifications = notifications.filter((item) => !readIds.has(item.id));
@@ -159,6 +160,31 @@ export function Header() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [session, token, loadNotifications]);
+
+  // Lấy tên hiển thị từ thông tin cá nhân; ProfilePanel phát sự kiện khi lưu để đổi tên ngay.
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    let cancelled = false;
+    const loadName = () => {
+      void api<Profile>("/api/users/me", { token })
+        .then((profile) => {
+          if (!cancelled) setFullName(profile.fullName);
+        })
+        .catch(() => undefined);
+    };
+    loadName();
+    window.addEventListener("profile-updated", loadName);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("profile-updated", loadName);
+    };
+  }, [token]);
+
+  // Tên người Việt đứng cuối họ tên: chỉ lấy từ cuối, không lấy họ.
+  const greetingName =
+    (token ? fullName?.trim().split(/\s+/).pop() : null) || session?.email.split("@")[0] || "";
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -320,7 +346,7 @@ export function Header() {
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-500 text-xs font-bold text-white">
                   {session.email.charAt(0).toUpperCase()}
                 </span>
-                <span className="hidden sm:inline">Chào, {session.email.split("@")[0]}</span>
+                <span className="hidden sm:inline">Chào, {greetingName}</span>
                 <ChevronDownIcon />
               </button>
               {accountOpen && (

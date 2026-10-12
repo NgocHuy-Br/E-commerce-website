@@ -75,6 +75,7 @@ export function ProfilePanel() {
         body: { fullName, phoneNumber, avatarUrl: avatarUrl || null },
       });
       setProfile(updated);
+      window.dispatchEvent(new Event("profile-updated"));
       notify("Đã cập nhật thông tin cá nhân.", "success");
     } catch (error) {
       notify(errorMessage(error, "Không thể cập nhật thông tin."), "error");
