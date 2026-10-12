@@ -1,19 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
 import { api, errorMessage, query } from "../../lib/api";
 import { useCart } from "../../lib/cart";
-import { formatCurrency } from "../../lib/format";
-import { soldCountForProduct } from "../../lib/mock";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import type { Category, Product, ReviewSummary } from "../../lib/types";
-import { Stars } from "../Stars";
-import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
+import { Pager, usePaging } from "../Pager";
+import { Button, Card, Empty, Field, Select, TextInput } from "../ui";
+import { ProductCard } from "./ProductCard";
 
-/** Tìm kiếm hàng hoá ở trang chủ: từ khoá, danh mục, khoảng giá, sắp xếp. */
+const SERVER_SORTS = ["newest", "price_asc", "price_desc", "name"];
+
+/** Tìm kiếm hàng hoá ở trang chủ: từ khoá, danh mục, khoảng giá, khuyến mãi, sắp xếp. */
 export function ProductCatalog() {
   const { token, isAdmin } = useSession();
   const notify = useNotify();
@@ -27,6 +27,8 @@ export function ProductCatalog() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState("newest");
+  const [onlyDiscount, setOnlyDiscount] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [loading, setLoading] = useState(false);
 
   /** Lấy điểm sao trung bình của các sản phẩm đang hiển thị. */
@@ -35,14 +37,10 @@ export function ProductCatalog() {
       return;
     }
     const ids = items.map((item) => item.id).join(",");
-    const summaries = await api<ReviewSummary[]>(
-      `/api/orders/reviews/summary?productIds=${ids}`,
-    ).catch(() => [] as ReviewSummary[]);
-    setRatings(
-      Object.fromEntries(
-        summaries.map((summary) => [summary.productId, summary]),
-      ),
+    const summaries = await api<ReviewSummary[]>(`/api/orders/reviews/summary?productIds=${ids}`).catch(
+      () => [] as ReviewSummary[],
     );
+    setRatings(Object.fromEntries(summaries.map((summary) => [summary.productId, summary])));
   }, []);
 
   /** Nạp danh mục và danh sách sản phẩm khi mở trang. */
@@ -62,11 +60,21 @@ export function ProductCatalog() {
 
   useLoadEffect(loadInitial);
 
-  const search = async () => {
+  const search = async (override?: { keyword?: string; categoryId?: string; minPrice?: string; maxPrice?: string; sort?: string }) => {
+    const params = {
+      keyword: override?.keyword ?? keyword,
+      categoryId: override?.categoryId ?? categoryId,
+      minPrice: override?.minPrice ?? minPrice,
+      maxPrice: override?.maxPrice ?? maxPrice,
+      sort: override?.sort ?? sort,
+    };
     setLoading(true);
     try {
       const result = await api<Product[]>(
-        `/api/products${query({ keyword, categoryId, minPrice, maxPrice, sort })}`,
+        `/api/products${query({
+          ...params,
+          sort: SERVER_SORTS.includes(params.sort) ? params.sort : "newest",
+        })}`,
       );
       setProducts(result);
       await loadRatings(result);
@@ -77,168 +85,117 @@ export function ProductCatalog() {
     }
   };
 
+  const clearFilters = () => {
+    setKeyword("");
+    setCategoryId("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSort("newest");
+    setOnlyDiscount(false);
+    setInStockOnly(false);
+    void search({ keyword: "", categoryId: "", minPrice: "", maxPrice: "", sort: "newest" });
+  };
+
+  const visible = products
+    .filter((product) => !onlyDiscount || product.discountPercent > 0)
+    .filter((product) => !inStockOnly || product.stockQuantity > 0)
+    .sort((left, right) => {
+      if (sort === "popular") return (right.soldQuantity ?? 0) - (left.soldQuantity ?? 0);
+      if (sort === "rating") {
+        return (ratings[right.id]?.averageRating ?? 0) - (ratings[left.id]?.averageRating ?? 0);
+      }
+      return 0;
+    });
+  const paging = usePaging(
+    visible,
+    12,
+    `${keyword}|${categoryId}|${minPrice}|${maxPrice}|${sort}|${onlyDiscount}|${inStockOnly}|${products.length}`,
+  );
+
   return (
     <div className="space-y-5">
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Từ khoá">
-            <TextInput
-              value={keyword}
-              onChange={setKeyword}
-              placeholder="Tên sản phẩm"
-              onEnter={search}
-            />
+            <TextInput value={keyword} onChange={setKeyword} placeholder="Tên sản phẩm" onEnter={() => search()} />
           </Field>
           <Field label="Danh mục">
             <Select
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={(value) => {
+                setCategoryId(value);
+                void search({ categoryId: value });
+              }}
               options={[
                 { value: "", label: "Tất cả danh mục" },
-                ...categories.map((category) => ({
-                  value: String(category.id),
-                  label: category.name,
-                })),
+                ...categories.map((category) => ({ value: String(category.id), label: category.name })),
               ]}
             />
           </Field>
           <Field label="Sắp xếp">
             <Select
               value={sort}
-              onChange={setSort}
+              onChange={(value) => {
+                setSort(value);
+                if (SERVER_SORTS.includes(value)) void search({ sort: value });
+              }}
               options={[
                 { value: "newest", label: "Mới nhất" },
+                { value: "popular", label: "Bán chạy" },
+                { value: "rating", label: "Đánh giá cao" },
                 { value: "price_asc", label: "Giá tăng dần" },
                 { value: "price_desc", label: "Giá giảm dần" },
                 { value: "name", label: "Tên A-Z" },
               ]}
             />
           </Field>
-          <Field label="Giá từ">
-            <TextInput
-              type="number"
-              value={minPrice}
-              onChange={setMinPrice}
-              placeholder="0"
-            />
+          <Field label="Giá từ (đ)">
+            <TextInput value={minPrice} onChange={setMinPrice} placeholder="0" thousands onEnter={() => search()} />
           </Field>
-          <Field label="Giá đến">
-            <TextInput
-              type="number"
-              value={maxPrice}
-              onChange={setMaxPrice}
-              placeholder="1000000"
-            />
+          <Field label="Giá đến (đ)">
+            <TextInput value={maxPrice} onChange={setMaxPrice} placeholder="1.000.000" thousands onEnter={() => search()} />
           </Field>
-          <div className="flex items-end">
-            <Button
-              variant="accent"
-              className="w-full"
-              onClick={search}
-              disabled={loading}
-            >
+          <div className="flex items-end gap-2">
+            <Button variant="accent" className="flex-1" onClick={() => search()} disabled={loading}>
               {loading ? "Đang tìm..." : "Tìm kiếm"}
+            </Button>
+            <Button variant="ghost" onClick={clearFilters}>
+              Xoá lọc
             </Button>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-700">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={onlyDiscount} onChange={(event) => setOnlyDiscount(event.target.checked)} />
+            Đang giảm giá
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
+            Còn hàng
+          </label>
+          <span className="text-xs text-slate-500">{visible.length} sản phẩm</span>
+        </div>
       </Card>
 
-      {products.length === 0 ? (
+      {visible.length === 0 ? (
         <Card>
           <Empty>Không tìm thấy sản phẩm phù hợp.</Empty>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {products.map((product) => {
-            const rating = ratings[product.id];
-            return (
-              <article
-                key={product.id}
-                className="flex flex-col border border-stone-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-              >
-                <Link
-                  href={`/products/${product.id}`}
-                  className="flex aspect-square items-center justify-center overflow-hidden bg-stone-100 text-sm text-slate-400"
-                >
-                  {product.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    "Chưa có ảnh"
-                  )}
-                </Link>
-                <div className="mt-3 flex items-start justify-between gap-2">
-                  <Link
-                    href={`/products/${product.id}`}
-                    className="font-semibold hover:text-teal-800"
-                  >
-                    {product.name}
-                  </Link>
-                  {product.discountPercent > 0 && (
-                    <Badge tone="danger">-{product.discountPercent}%</Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {product.categoryName}
-                </p>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                  {product.description || "Chưa có mô tả"}
-                </p>
-                <div className="mt-2">
-                  <Stars
-                    rating={rating?.averageRating ?? 0}
-                    count={rating?.reviewCount ?? 0}
-                  />
-                </div>
-                <p className="mt-2 font-semibold text-teal-800">
-                  {formatCurrency(product.effectivePrice)}
-                  {product.discountPercent > 0 && (
-                    <span className="ml-2 text-xs font-normal text-slate-400 line-through">
-                      {formatCurrency(product.price)}
-                    </span>
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Còn {product.stockQuantity} sản phẩm · Đã bán {product.soldQuantity ?? soldCountForProduct(product.id)}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {!isAdmin && (
-                    <Button
-                      className="flex-1"
-                      disabled={product.stockQuantity < 1}
-                      onClick={() => addItem(product, 1)}
-                    >
-                      Thêm vào giỏ
-                    </Button>
-                  )}
-                  <Link
-                    href={`/products/${product.id}`}
-                    className={`border border-stone-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-stone-100 ${
-                      isAdmin ? "flex-1" : ""
-                    }`}
-                  >
-                    Chi tiết
-                  </Link>
-                </div>
-                {!token && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Cần đăng nhập để mua hàng.
-                  </p>
-                )}
-                {isAdmin && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Tài khoản quản trị chỉ xem, không mua hàng.
-                  </p>
-                )}
-              </article>
-            );
-          })}
+          {paging.slice.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              rating={ratings[product.id]}
+              isAdmin={isAdmin}
+              loggedIn={Boolean(token)}
+              onAdd={(item) => addItem(item, 1)}
+            />
+          ))}
         </div>
       )}
+      <Pager page={paging.page} pageCount={paging.pageCount} total={paging.total} onPage={paging.setPage} />
     </div>
   );
 }

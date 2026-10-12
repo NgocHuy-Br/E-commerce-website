@@ -18,7 +18,6 @@ import {
 import { api, errorMessage } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { formatCurrency } from "../lib/format";
-import { readWallet, chargeWallet } from "../lib/mock";
 import { PAYMENT_METHODS } from "../lib/payment";
 import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
@@ -59,7 +58,7 @@ export default function CartPage() {
   if (!token) {
     return (
       <>
-        <PageHeader title="Giỏ hàng" />
+        <PageHeader title="Giỏ hàng" back={false} />
         <RequireLogin
           next="/cart"
           message="Đăng nhập để xem giỏ hàng của bạn."
@@ -71,7 +70,7 @@ export default function CartPage() {
   if (isAdmin) {
     return (
       <>
-        <PageHeader title="Giỏ hàng" />
+        <PageHeader title="Giỏ hàng" back={false} />
         <AdminNotAllowed feature="giỏ hàng và mua hàng" />
       </>
     );
@@ -105,19 +104,8 @@ export default function CartPage() {
       notify("Hãy chọn hoặc nhập địa chỉ giao hàng.", "error");
       return;
     }
-    const payableAmount = subtotal - estimatedDiscount;
-    if (paymentMethod === "WALLET") {
-      const wallet = readWallet();
-      if (wallet.balance < payableAmount) {
-        notify(`Số dư ví không đủ. Cần ${formatCurrency(payableAmount)} nhưng hiện chỉ có ${formatCurrency(wallet.balance)}.`, "error");
-        return;
-      }
-    }
     setPlacing(true);
     try {
-      if (paymentMethod === "WALLET") {
-        chargeWallet(payableAmount);
-      }
       const orders = await api<Order[]>("/api/orders/checkout", {
         method: "POST",
         token,
@@ -145,7 +133,7 @@ export default function CartPage() {
 
   return (
     <>
-      <PageHeader title="Giỏ hàng" />
+      <PageHeader title="Giỏ hàng" back={false} />
 
       {items.length === 0 ? (
         <Card>
@@ -303,6 +291,26 @@ export default function CartPage() {
                     placeholder="VD: NHOM14"
                   />
                 </Field>
+                {voucherCode.trim() !== "" && (
+                  <p
+                    className={`text-xs ${
+                      !selectedVoucher
+                        ? "text-rose-600"
+                        : estimatedDiscount > 0
+                          ? "text-teal-800"
+                          : "text-amber-700"
+                    }`}
+                  >
+                    {!selectedVoucher
+                      ? "Mã không tồn tại hoặc đã hết hiệu lực."
+                      : estimatedDiscount > 0
+                        ? `Đã áp dụng: giảm ${selectedVoucher.discountPercent}% (-${formatCurrency(estimatedDiscount)}).`
+                        : `Cần đơn từ ${formatCurrency(selectedVoucher.minimumOrderAmount)} để dùng mã này.`}{" "}
+                    <button type="button" onClick={() => setVoucherCode("")} className="underline">
+                      Bỏ mã
+                    </button>
+                  </p>
+                )}
                 {vouchers.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {vouchers.map((voucher) => (
@@ -310,12 +318,14 @@ export default function CartPage() {
                         key={voucher.id}
                         type="button"
                         onClick={() => setVoucherCode(voucher.code)}
+                        className={subtotal >= voucher.minimumOrderAmount ? "" : "opacity-50"}
                         title={`Giảm ${voucher.discountPercent}% cho đơn từ ${formatCurrency(
                           voucher.minimumOrderAmount,
                         )}`}
                       >
                         <Badge tone="warning">
                           {voucher.code} -{voucher.discountPercent}%
+                          {voucher.minimumOrderAmount > 0 ? ` · từ ${formatCurrency(voucher.minimumOrderAmount)}` : ""}
                         </Badge>
                       </button>
                     ))}

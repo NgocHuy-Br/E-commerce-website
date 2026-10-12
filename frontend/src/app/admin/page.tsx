@@ -2,24 +2,44 @@
 
 import { useState } from "react";
 import { AccountManager } from "../components/admin/AccountManager";
+import { AuditViewer } from "../components/admin/AuditViewer";
 import { CatalogModeration } from "../components/admin/CatalogModeration";
 import { Dashboard } from "../components/admin/Dashboard";
 import { OrderMonitor } from "../components/admin/OrderMonitor";
+import { ReportPanel } from "../components/admin/ReportPanel";
+import { ReviewModeration } from "../components/admin/ReviewModeration";
+import { SystemSettings } from "../components/admin/SystemSettings";
 import { StoreApproval } from "../components/admin/StoreApproval";
 import { VoucherManager } from "../components/admin/VoucherManager";
+import { WithdrawalManager } from "../components/admin/WithdrawalManager";
 import { Card, PageHeader, RequireLogin } from "../components/ui";
 import { useSession } from "../lib/session";
 
 type AdminTab =
-  "dashboard" | "accounts" | "stores" | "catalog" | "orders" | "vouchers";
+  | "dashboard"
+  | "reports"
+  | "accounts"
+  | "stores"
+  | "catalog"
+  | "orders"
+  | "reviews"
+  | "withdrawals"
+  | "vouchers"
+  | "settings"
+  | "audit";
 
 const tabs: { key: AdminTab; label: string }[] = [
   { key: "dashboard", label: "Tổng quan" },
+  { key: "reports", label: "Báo cáo" },
   { key: "accounts", label: "Tài khoản" },
   { key: "stores", label: "Cửa hàng" },
   { key: "catalog", label: "Danh mục & sản phẩm" },
   { key: "orders", label: "Đơn hàng" },
+  { key: "reviews", label: "Đánh giá" },
+  { key: "withdrawals", label: "Rút tiền" },
   { key: "vouchers", label: "Mã giảm giá" },
+  { key: "settings", label: "Cài đặt hệ thống" },
+  { key: "audit", label: "Nhật ký" },
 ];
 
 export default function AdminPage() {
@@ -76,11 +96,16 @@ export default function AdminPage() {
       </div>
 
       {tab === "dashboard" && <Dashboard />}
+      {tab === "reports" && <ReportPanel />}
       {tab === "accounts" && <AccountManager />}
       {tab === "stores" && <StoreApproval />}
       {tab === "catalog" && <CatalogModeration />}
       {tab === "orders" && <OrderMonitor />}
+      {tab === "reviews" && <ReviewModeration />}
+      {tab === "withdrawals" && <WithdrawalManager />}
       {tab === "vouchers" && <VoucherManager />}
+      {tab === "settings" && <SystemSettings />}
+      {tab === "audit" && <AuditViewer />}
     </>
   );
 }

@@ -61,11 +61,30 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
         }
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Tài khoản đã bị khoá, vui lòng liên hệ quản trị viên");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, lockedMessage(account));
         }
 
         return toAuthResponse(account);
+    }
+
+    /**
+     * Cấp lại token với quyền mới nhất (ví dụ vừa được duyệt cửa hàng) mà không cần
+     * đăng nhập lại.
+     */
+    @Transactional(readOnly = true)
+    public AuthResponse refresh(Long accountId) {
+        Account account = findAccount(accountId);
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, lockedMessage(account));
+        }
+        return toAuthResponse(account);
+    }
+
+    private String lockedMessage(Account account) {
+        String reason = account.getLockReason();
+        return reason == null || reason.isBlank()
+                ? "Tài khoản đã bị khoá, vui lòng liên hệ quản trị viên"
+                : "Tài khoản đã bị khoá: " + reason + ". Vui lòng liên hệ quản trị viên";
     }
 
     @Transactional
@@ -124,8 +143,16 @@ public class AuthService {
 
     @Transactional
     public AccountResponse updateStatus(Long accountId, AccountStatus status) {
+        return updateStatus(accountId, status, null);
+    }
+
+    @Transactional
+    public AccountResponse updateStatus(Long accountId, AccountStatus status, String reason) {
         Account account = findAccount(accountId);
         account.setStatus(status);
+        account.setLockReason(status == AccountStatus.LOCKED && reason != null && !reason.isBlank()
+                ? reason.trim()
+                : null);
         return toAccountResponse(account);
     }
 
@@ -150,7 +177,8 @@ public class AuthService {
     }
 
     private AccountResponse toAccountResponse(Account account) {
-        return new AccountResponse(account.getId(), account.getEmail(), account.getRoles(), account.getStatus());
+        return new AccountResponse(account.getId(), account.getEmail(), account.getRoles(), account.getStatus(),
+                account.getLockReason());
     }
 
     private Account findAccount(Long accountId) {

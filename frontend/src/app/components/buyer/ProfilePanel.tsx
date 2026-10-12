@@ -14,6 +14,7 @@ import {
 } from "../../lib/validate";
 import type { Address, Profile } from "../../lib/types";
 import { Badge, Button, Card, Empty, Field, TextInput } from "../ui";
+import { ImageUpload } from "../ImageUpload";
 
 const emptyAddress = {
   recipientName: "",
@@ -133,7 +134,7 @@ export function ProfilePanel() {
         <p className="mb-3 text-sm text-slate-500">
           Email: {profile?.email ?? "-"}
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Họ tên" error={errors.fullName}>
             <TextInput
               value={fullName}
@@ -151,14 +152,12 @@ export function ProfilePanel() {
               invalid={Boolean(errors.phoneNumber)}
             />
           </Field>
-          <Field label="Ảnh đại diện (URL)" error={errors.avatarUrl}>
-            <TextInput
-              value={avatarUrl}
-              onChange={setAvatarUrl}
-              placeholder="https://..."
-              invalid={Boolean(errors.avatarUrl)}
-            />
-          </Field>
+        </div>
+        <div className="mt-4">
+          <ImageUpload label="Ảnh đại diện" value={avatarUrl} onChange={setAvatarUrl} />
+          {errors.avatarUrl && (
+            <p className="mt-1 text-xs text-rose-600">{errors.avatarUrl}</p>
+          )}
         </div>
         <Button className="mt-4" onClick={saveProfile}>
           Lưu thông tin

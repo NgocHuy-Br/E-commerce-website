@@ -45,6 +45,16 @@ public class Account {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(length = 500)
+    private String lockReason;
+
+    @Column(length = 100)
+    private String resetCodeHash;
+
+    private Instant resetExpiresAt;
+
+    private Integer resetAttempts;
+
     protected Account() {
     }
 
@@ -103,5 +113,41 @@ public class Account {
 
     public void setStatus(AccountStatus status) {
         this.status = status;
+    }
+
+    public String getLockReason() {
+        return lockReason;
+    }
+
+    public void setLockReason(String lockReason) {
+        this.lockReason = lockReason;
+    }
+
+    public String getResetCodeHash() {
+        return resetCodeHash;
+    }
+
+    public Instant getResetExpiresAt() {
+        return resetExpiresAt;
+    }
+
+    public int getResetAttempts() {
+        return resetAttempts == null ? 0 : resetAttempts;
+    }
+
+    public void startPasswordReset(String codeHash, Instant expiresAt) {
+        this.resetCodeHash = codeHash;
+        this.resetExpiresAt = expiresAt;
+        this.resetAttempts = 0;
+    }
+
+    public void recordFailedResetAttempt() {
+        this.resetAttempts = getResetAttempts() + 1;
+    }
+
+    public void clearPasswordReset() {
+        this.resetCodeHash = null;
+        this.resetExpiresAt = null;
+        this.resetAttempts = 0;
     }
 }

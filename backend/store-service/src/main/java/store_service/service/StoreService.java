@@ -76,6 +76,7 @@ public class StoreService {
         // Cửa hàng bị từ chối sau khi sửa lại thông tin thì được chờ duyệt lần nữa.
         if (store.getStatus() == StoreStatus.REJECTED) {
             store.setStatus(StoreStatus.PENDING);
+            store.setStatusReason(null);
         }
         return toResponse(store);
     }
@@ -99,11 +100,18 @@ public class StoreService {
 
     @Transactional
     public StoreResponse updateStatus(Long storeId, StoreStatus status, String authorization) {
+        return updateStatus(storeId, status, null, authorization);
+    }
+
+    @Transactional
+    public StoreResponse updateStatus(Long storeId, StoreStatus status, String reason, String authorization) {
         Store store = findStore(storeId);
         if (store.getStatus() == status) {
             return toResponse(store);
         }
+        boolean needsReason = status == StoreStatus.REJECTED || status == StoreStatus.SUSPENDED;
         store.setStatus(status);
+        store.setStatusReason(needsReason && reason != null && !reason.isBlank() ? reason.trim() : null);
         if (status == StoreStatus.ACTIVE) {
             authServiceClient.grantSellerRole(store.getOwnerId(), authorization);
         }
@@ -120,6 +128,7 @@ public class StoreService {
 
     private StoreResponse toResponse(Store store) {
         return new StoreResponse(store.getId(), store.getOwnerId(), store.getName(), store.getDescription(),
-                store.getAddress(), store.getPhoneNumber(), store.getLogoUrl(), store.getStatus());
+                store.getAddress(), store.getPhoneNumber(), store.getLogoUrl(), store.getStatus(),
+                store.getStatusReason());
     }
 }

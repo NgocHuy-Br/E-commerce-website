@@ -20,6 +20,7 @@ export type Account = {
   email: string;
   roles: Role[];
   status: AccountStatus;
+  lockReason: string | null;
 };
 
 export type AccountStats = {
@@ -74,28 +75,50 @@ export type WalletTransactionType =
   | "TOPUP"
   | "WITHDRAW"
   | "ORDER_PAYMENT"
-  | "ORDER_REFUND"
   | "SELLER_SETTLEMENT"
-  | "COMMISSION"
-  | "ADJUSTMENT";
+  | "REFUND";
 
-export type WalletTransactionStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+export type WalletTransactionStatus = "PENDING" | "COMPLETED" | "CANCELLED";
 
 export type WalletTransaction = {
   id: number;
+  userId: number;
   type: WalletTransactionType;
   amount: number;
   status: WalletTransactionStatus;
-  method: string;
-  note: string;
+  method: string | null;
+  note: string | null;
+  orderId: number | null;
   createdAt: string;
+  processedAt: string | null;
+  adminNote: string | null;
 };
 
 export type Wallet = {
   balance: number;
-  currency: string;
   pendingWithdraw: number;
   transactions: WalletTransaction[];
+};
+
+export type SellerReview = {
+  id: number;
+  productId: number;
+  productName: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  sellerReply: string | null;
+  sellerRepliedAt: string | null;
+  commentHidden: boolean;
+};
+
+export type AuditLog = {
+  id: number;
+  adminId: number;
+  adminEmail: string;
+  action: string;
+  detail: string | null;
+  createdAt: string;
 };
 
 export type Promotion = {
@@ -128,6 +151,7 @@ export type Store = {
   phoneNumber: string;
   logoUrl: string | null;
   status: StoreStatus;
+  statusReason: string | null;
 };
 
 export type StoreStats = {
@@ -181,6 +205,14 @@ export type Order = {
   status: OrderStatus;
   createdAt: string;
   items: OrderItem[];
+  carrier: string | null;
+  trackingCode: string | null;
+  shippedAt: string | null;
+  estimatedDeliveryAt: string | null;
+  deliveredAt: string | null;
+  commissionPercent: number;
+  commissionAmount: number;
+  sellerAmount: number;
 };
 
 export type OrderStats = {
@@ -191,6 +223,7 @@ export type OrderStats = {
   cancelledOrders: number;
   totalReviews: number;
   averageRating: number;
+  platformCommission: number;
   ordersByStatus: Record<string, number>;
 };
 
@@ -200,6 +233,11 @@ export type Review = {
   rating: number;
   comment: string | null;
   createdAt: string;
+  sellerReply: string | null;
+  sellerRepliedAt: string | null;
+  commentHidden: boolean;
+  removed: boolean;
+  moderationReason: string | null;
 };
 
 export type ReviewSummary = {

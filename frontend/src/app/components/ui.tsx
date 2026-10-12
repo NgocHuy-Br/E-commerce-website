@@ -105,6 +105,7 @@ export function TextInput({
   type = "text",
   onEnter,
   digitsOnly = false,
+  thousands = false,
   invalid = false,
   showToggle = false,
   readOnly = false,
@@ -116,6 +117,8 @@ export function TextInput({
   onEnter?: () => void;
   /** Ô chỉ cho nhập số: mọi ký tự khác chữ số đều bị bỏ ngay khi gõ. */
   digitsOnly?: boolean;
+  /** Ô nhập tiền: hiển thị dấu . phân cách hàng nghìn, giá trị trả về vẫn là chuỗi chữ số. */
+  thousands?: boolean;
   invalid?: boolean;
   /** Hiển thị nút ẩn/hiện cho trường password. */
   showToggle?: boolean;
@@ -127,14 +130,16 @@ export function TextInput({
   return (
     <div className="relative">
       <input
-        type={isPasswordInput && showPassword ? "text" : type}
-        value={value}
+        type={thousands ? "text" : isPasswordInput && showPassword ? "text" : type}
+        value={thousands ? value.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : value}
         placeholder={placeholder}
         readOnly={readOnly}
-        inputMode={digitsOnly ? "numeric" : undefined}
+        inputMode={digitsOnly || thousands ? "numeric" : undefined}
         onChange={(event) =>
           onChange(
-            digitsOnly ? keepDigitsOnly(event.target.value) : event.target.value,
+            digitsOnly || thousands
+              ? keepDigitsOnly(event.target.value)
+              : event.target.value,
           )
         }
         onKeyDown={(event) => {

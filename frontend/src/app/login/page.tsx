@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Button, Card, Field, TextInput } from "../components/ui";
+import { PasswordStrength } from "../components/PasswordStrength";
 import { api, errorMessage } from "../lib/api";
 import { checkEmail, checkPassword } from "../lib/validate";
 import { useSession } from "../lib/session";
@@ -113,8 +114,17 @@ function LoginForm() {
               invalid={Boolean(passwordError)}
               showToggle
             />
+            {mode === "register" && <PasswordStrength value={password} />}
           </Field>
         </div>
+
+        {mode === "login" && (
+          <p className="mt-2 text-right text-sm">
+            <Link href="/forgot-password" className="text-teal-800 hover:underline">
+              Quên mật khẩu?
+            </Link>
+          </p>
+        )}
 
         <Button className="mt-5 w-full" onClick={submit} disabled={loading}>
           {loading

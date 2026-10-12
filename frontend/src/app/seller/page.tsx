@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ProductManager } from "../components/seller/ProductManager";
 import { PromotionManager } from "../components/seller/PromotionManager";
 import { SellerOrders } from "../components/seller/SellerOrders";
+import { SellerReviews } from "../components/seller/SellerReviews";
 import { StorePanel } from "../components/seller/StorePanel";
 import {
   AdminNotAllowed,
@@ -15,13 +16,14 @@ import { useLoadEffect } from "../lib/hooks";
 import { useSession } from "../lib/session";
 import type { Store } from "../lib/types";
 
-type SellerTab = "store" | "products" | "promotions" | "orders";
+type SellerTab = "store" | "products" | "promotions" | "orders" | "reviews";
 
 const tabs: { key: SellerTab; label: string }[] = [
   { key: "store", label: "Cửa hàng của tôi" },
   { key: "products", label: "Sản phẩm" },
   { key: "promotions", label: "Khuyến mãi" },
   { key: "orders", label: "Quản lý đơn hàng" },
+  { key: "reviews", label: "Đánh giá" },
 ];
 
 export default function SellerPage() {
@@ -58,6 +60,11 @@ export default function SellerPage() {
 
   return (
     <>
+      {store?.status === "ACTIVE" && !hasRole("SELLER") && (
+        <p className="mb-4 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Cửa hàng đã được duyệt. Vui lòng đăng xuất và đăng nhập lại để kích hoạt quyền người bán.
+        </p>
+      )}
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-stone-200 pb-2" role="tablist" aria-label="Kênh người bán">
         {tabs.map((item) => (
           <button
@@ -103,6 +110,16 @@ export default function SellerPage() {
           <Card title="Quản lý đơn hàng">
             <p className="text-sm text-slate-500">
               Cửa hàng cần được admin duyệt để xem và xử lý đơn hàng.
+            </p>
+          </Card>
+        ))}
+      {tab === "reviews" &&
+        (hasRole("SELLER") ? (
+          <SellerReviews />
+        ) : (
+          <Card title="Đánh giá">
+            <p className="text-sm text-slate-500">
+              Cửa hàng cần được admin duyệt để xem và phản hồi đánh giá.
             </p>
           </Card>
         ))}

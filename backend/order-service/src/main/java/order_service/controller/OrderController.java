@@ -22,7 +22,10 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    /** Đặt hàng. Giỏ hàng nhiều cửa hàng sẽ tạo nhiều đơn nên kết quả là một danh sách. */
+    /**
+     * Đặt hàng. Giỏ hàng nhiều cửa hàng sẽ tạo nhiều đơn nên kết quả là một danh
+     * sách.
+     */
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('BUYER')")
     public List<OrderResponse> checkout(@AuthenticationPrincipal AuthPrincipal principal,
@@ -69,6 +72,13 @@ public class OrderController {
     public OrderResponse pay(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody PaymentRequest request) {
         return orderService.pay(orderId, principal.userId(), request.paymentMethod());
+    }
+
+    /** Người mua xác nhận đã nhận hàng. */
+    @PutMapping("/{orderId}/receive")
+    @PreAuthorize("hasRole('BUYER')")
+    public OrderResponse receive(@PathVariable Long orderId, @AuthenticationPrincipal AuthPrincipal principal) {
+        return orderService.receive(orderId, principal.userId());
     }
 
     /** Người mua huỷ đơn khi shop chưa giao. */

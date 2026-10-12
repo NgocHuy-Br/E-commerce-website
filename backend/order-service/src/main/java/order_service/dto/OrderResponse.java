@@ -8,6 +8,9 @@ import order_service.entity.PaymentMethod;
 import order_service.entity.PaymentStatus;
 
 public record OrderResponse(Long id, Long buyerId, Long storeId, BigDecimal totalAmount, BigDecimal discountAmount,
-        String voucherCode, String shippingAddress, PaymentMethod paymentMethod, PaymentStatus paymentStatus,
-        OrderStatus status, Instant createdAt, List<OrderItemResponse> items) {
+                String voucherCode, String shippingAddress, PaymentMethod paymentMethod, PaymentStatus paymentStatus,
+                OrderStatus status, Instant createdAt, List<OrderItemResponse> items, String carrier,
+                String trackingCode,
+                Instant shippedAt, Instant estimatedDeliveryAt, Instant deliveredAt, BigDecimal commissionPercent,
+                BigDecimal commissionAmount, BigDecimal sellerAmount) {
 }

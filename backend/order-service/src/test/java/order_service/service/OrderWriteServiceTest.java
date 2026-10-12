@@ -28,118 +28,130 @@ import org.springframework.web.server.ResponseStatusException;
 @ExtendWith(MockitoExtension.class)
 class OrderWriteServiceTest {
 
-    @Mock
-    private CustomerOrderRepository orderRepository;
+        @Mock
+        private CustomerOrderRepository orderRepository;
 
-    @Mock
-    private VoucherRepository voucherRepository;
+        @Mock
+        private VoucherRepository voucherRepository;
 
-    @InjectMocks
-    private OrderWriteService orderWriteService;
+        @Mock
+        private CommissionService commissionService;
 
-    private CheckoutRequest request(String voucherCode) {
-        return new CheckoutRequest("Số 5 Nguyễn Trãi, Hà Nội", PaymentMethod.COD, voucherCode);
-    }
+        @Mock
+        private WalletService walletService;
 
-    private Voucher voucher(int percent, String minimumOrderAmount) {
-        return new Voucher("NHOM14", percent, new BigDecimal(minimumOrderAmount), 10,
-                Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(7, ChronoUnit.DAYS));
-    }
+        @org.junit.jupiter.api.BeforeEach
+        void stubCommission() {
+                org.mockito.Mockito.lenient().when(commissionService.currentPercent())
+                                .thenReturn(new BigDecimal("5.00"));
+        }
 
-    @SuppressWarnings("unchecked")
-    private void echoSavedOrders() {
-        when(orderRepository.saveAll(anyList()))
-                .thenAnswer(invocation -> (List<CustomerOrder>) invocation.getArgument(0));
-    }
+        @InjectMocks
+        private OrderWriteService orderWriteService;
 
-    @Test
-    @DisplayName("Giỏ hàng một cửa hàng thì tạo đúng một đơn")
-    void singleStoreCreatesOneOrder() {
-        echoSavedOrders();
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
-                new ReservedItem(2L, 10L, "Chuột", new BigDecimal("300000"), 1));
+        private CheckoutRequest request(String voucherCode) {
+                return new CheckoutRequest("Số 5 Nguyễn Trãi, Hà Nội", PaymentMethod.COD, voucherCode);
+        }
 
-        List<CustomerOrder> orders = orderWriteService.createOrders(1L, request(null), items);
+        private Voucher voucher(int percent, String minimumOrderAmount) {
+                return new Voucher("NHOM14", percent, new BigDecimal(minimumOrderAmount), 10,
+                                Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(7, ChronoUnit.DAYS));
+        }
 
-        assertThat(orders).hasSize(1);
-        assertThat(orders.get(0).getStoreId()).isEqualTo(10L);
-        assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("1000000");
-    }
+        @SuppressWarnings("unchecked")
+        private void echoSavedOrders() {
+                when(orderRepository.saveAll(anyList()))
+                                .thenAnswer(invocation -> (List<CustomerOrder>) invocation.getArgument(0));
+        }
 
-    @Test
-    @DisplayName("Giỏ hàng nhiều cửa hàng được tách thành nhiều đơn theo từng cửa hàng")
-    void multipleStoresSplitIntoSeparateOrders() {
-        echoSavedOrders();
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
-                new ReservedItem(5L, 20L, "Áo thun", new BigDecimal("180000"), 2),
-                new ReservedItem(2L, 10L, "Chuột", new BigDecimal("300000"), 1));
+        @Test
+        @DisplayName("Giỏ hàng một cửa hàng thì tạo đúng một đơn")
+        void singleStoreCreatesOneOrder() {
+                echoSavedOrders();
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
+                                new ReservedItem(2L, 10L, "Chuột", new BigDecimal("300000"), 1));
 
-        List<CustomerOrder> orders = orderWriteService.createOrders(1L, request(null), items);
+                List<CustomerOrder> orders = orderWriteService.createOrders(1L, request(null), items);
 
-        assertThat(orders).hasSize(2);
-        assertThat(orders).extracting(CustomerOrder::getStoreId).containsExactly(10L, 20L);
-        assertThat(orders.get(0).getItems()).hasSize(2);
-        assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("1000000");
-        assertThat(orders.get(1).getTotalAmount()).isEqualByComparingTo("360000");
-    }
+                assertThat(orders).hasSize(1);
+                assertThat(orders.get(0).getStoreId()).isEqualTo(10L);
+                assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("1000000");
+        }
 
-    @Test
-    @DisplayName("Mã giảm 10% được áp cho từng đơn đã tách")
-    void discountAppliesToEachOrder() {
-        echoSavedOrders();
-        when(voucherRepository.findByCodeForUpdate("NHOM14"))
-                .thenReturn(Optional.of(voucher(10, "500000")));
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
-                new ReservedItem(5L, 20L, "Áo thun", new BigDecimal("300000"), 1));
+        @Test
+        @DisplayName("Giỏ hàng nhiều cửa hàng được tách thành nhiều đơn theo từng cửa hàng")
+        void multipleStoresSplitIntoSeparateOrders() {
+                echoSavedOrders();
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
+                                new ReservedItem(5L, 20L, "Áo thun", new BigDecimal("180000"), 2),
+                                new ReservedItem(2L, 10L, "Chuột", new BigDecimal("300000"), 1));
 
-        List<CustomerOrder> orders = orderWriteService.createOrders(1L, request("NHOM14"), items);
+                List<CustomerOrder> orders = orderWriteService.createOrders(1L, request(null), items);
 
-        // Mỗi đơn được giảm 10% giá trị của chính nó.
-        assertThat(orders.get(0).getDiscountAmount()).isEqualByComparingTo("70000");
-        assertThat(orders.get(1).getDiscountAmount()).isEqualByComparingTo("30000");
-        assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("630000");
-        assertThat(orders.get(1).getTotalAmount()).isEqualByComparingTo("270000");
-    }
+                assertThat(orders).hasSize(2);
+                assertThat(orders).extracting(CustomerOrder::getStoreId).containsExactly(10L, 20L);
+                assertThat(orders.get(0).getItems()).hasSize(2);
+                assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("1000000");
+                assertThat(orders.get(1).getTotalAmount()).isEqualByComparingTo("360000");
+        }
 
-    @Test
-    @DisplayName("Đơn chưa đạt giá trị tối thiểu thì không dùng được mã giảm giá")
-    void rejectsVoucherBelowMinimumOrderAmount() {
-        when(voucherRepository.findByCodeForUpdate("NHOM14"))
-                .thenReturn(Optional.of(voucher(10, "500000")));
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("100000"), 1));
+        @Test
+        @DisplayName("Mã giảm 10% được áp cho từng đơn đã tách")
+        void discountAppliesToEachOrder() {
+                echoSavedOrders();
+                when(voucherRepository.findByCodeForUpdate("NHOM14"))
+                                .thenReturn(Optional.of(voucher(10, "500000")));
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1),
+                                new ReservedItem(5L, 20L, "Áo thun", new BigDecimal("300000"), 1));
 
-        assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("NHOM14"), items))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("giá trị tối thiểu");
-    }
+                List<CustomerOrder> orders = orderWriteService.createOrders(1L, request("NHOM14"), items);
 
-    @Test
-    @DisplayName("Mã giảm giá hết lượt dùng thì bị từ chối")
-    void rejectsExhaustedVoucher() {
-        Voucher exhausted = new Voucher("NHOM14", 10, BigDecimal.ZERO, 0,
-                Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(1, ChronoUnit.DAYS));
-        when(voucherRepository.findByCodeForUpdate("NHOM14")).thenReturn(Optional.of(exhausted));
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1));
+                // Mỗi đơn được giảm 10% giá trị của chính nó.
+                assertThat(orders.get(0).getDiscountAmount()).isEqualByComparingTo("70000");
+                assertThat(orders.get(1).getDiscountAmount()).isEqualByComparingTo("30000");
+                assertThat(orders.get(0).getTotalAmount()).isEqualByComparingTo("630000");
+                assertThat(orders.get(1).getTotalAmount()).isEqualByComparingTo("270000");
+        }
 
-        assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("NHOM14"), items))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("hết lượt dùng");
-    }
+        @Test
+        @DisplayName("Đơn chưa đạt giá trị tối thiểu thì không dùng được mã giảm giá")
+        void rejectsVoucherBelowMinimumOrderAmount() {
+                when(voucherRepository.findByCodeForUpdate("NHOM14"))
+                                .thenReturn(Optional.of(voucher(10, "500000")));
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("100000"), 1));
 
-    @Test
-    @DisplayName("Mã giảm giá không tồn tại thì báo lỗi rõ ràng")
-    void rejectsUnknownVoucher() {
-        when(voucherRepository.findByCodeForUpdate("SAIMA")).thenReturn(Optional.empty());
-        List<ReservedItem> items = List.of(
-                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1));
+                assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("NHOM14"), items))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .hasMessageContaining("giá trị tối thiểu");
+        }
 
-        assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("SAIMA"), items))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Không tìm thấy mã giảm giá");
-    }
+        @Test
+        @DisplayName("Mã giảm giá hết lượt dùng thì bị từ chối")
+        void rejectsExhaustedVoucher() {
+                Voucher exhausted = new Voucher("NHOM14", 10, BigDecimal.ZERO, 0,
+                                Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(1, ChronoUnit.DAYS));
+                when(voucherRepository.findByCodeForUpdate("NHOM14")).thenReturn(Optional.of(exhausted));
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1));
+
+                assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("NHOM14"), items))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .hasMessageContaining("hết lượt dùng");
+        }
+
+        @Test
+        @DisplayName("Mã giảm giá không tồn tại thì báo lỗi rõ ràng")
+        void rejectsUnknownVoucher() {
+                when(voucherRepository.findByCodeForUpdate("SAIMA")).thenReturn(Optional.empty());
+                List<ReservedItem> items = List.of(
+                                new ReservedItem(1L, 10L, "Tai nghe", new BigDecimal("700000"), 1));
+
+                assertThatThrownBy(() -> orderWriteService.createOrders(1L, request("SAIMA"), items))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .hasMessageContaining("Không tìm thấy mã giảm giá");
+        }
 }

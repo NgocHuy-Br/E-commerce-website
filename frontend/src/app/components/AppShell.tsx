@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex min-h-screen flex-col bg-stone-50 text-slate-900">
           <Header />
           <ToastBanner />
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
             {children}
           </main>
           <footer className="border-t border-stone-200 bg-white py-5 text-center text-xs text-slate-400">

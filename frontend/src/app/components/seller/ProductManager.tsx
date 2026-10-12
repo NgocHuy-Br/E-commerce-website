@@ -27,6 +27,9 @@ import {
   TextInput,
 } from "../ui";
 
+const LOW_STOCK_LIMIT = 5;
+const RESTOCK_STEP = 10;
+
 const emptyProduct = {
   name: "",
   description: "",
@@ -58,8 +61,10 @@ export function ProductManager({
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
+  const isStoreActive = store?.status === "ACTIVE";
+
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isStoreActive) return;
     try {
       const [productData, categoryData] = await Promise.all([
         api<Product[]>("/api/products/mine", { token }),
@@ -80,14 +85,19 @@ export function ProductManager({
     } catch (error) {
       notify(errorMessage(error, "Không thể tải sản phẩm của shop."), "error");
     }
-  }, [token, notify]);
+  }, [token, notify, isStoreActive]);
 
   useLoadEffect(load);
 
   const visibleProducts = products
     .filter((product) => product.name.toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase()))
     .filter((product) => !categoryFilter || String(product.categoryId) === categoryFilter)
-    .filter((product) => !statusFilter || product.status === statusFilter)
+    .filter((product) =>
+      !statusFilter ||
+      (statusFilter === "LOW"
+        ? product.stockQuantity <= LOW_STOCK_LIMIT
+        : product.status === statusFilter),
+    )
     .sort((left, right) => {
       if (sortBy === "price_asc") return left.effectivePrice - right.effectivePrice;
       if (sortBy === "price_desc") return right.effectivePrice - left.effectivePrice;
@@ -145,6 +155,30 @@ export function ProductManager({
     }
   };
 
+  const lowStockCount = products.filter((product) => product.stockQuantity <= LOW_STOCK_LIMIT).length;
+
+  const restock = async (product: Product) => {
+    try {
+      await api<Product>(`/api/products/${product.id}`, {
+        method: "PUT",
+        token,
+        body: {
+          storeId: product.storeId,
+          categoryId: product.categoryId,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          stockQuantity: product.stockQuantity + RESTOCK_STEP,
+          imageUrl: product.imageUrl,
+        },
+      });
+      notify(`Đã nhập thêm ${RESTOCK_STEP} sản phẩm cho ${product.name}.`, "success");
+      await load();
+    } catch (error) {
+      notify(errorMessage(error, "Không thể cập nhật tồn kho."), "error");
+    }
+  };
+
   const toggleVisibility = async (product: Product) => {
     try {
       await api(
@@ -193,6 +227,14 @@ export function ProductManager({
         }
         className="border-t-4 border-t-amber-500"
       >
+        {lowStockCount > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <span>{lowStockCount} sản phẩm sắp hết hàng (tồn ≤ {LOW_STOCK_LIMIT}).</span>
+            <Button variant="ghost" onClick={() => setStatusFilter("LOW")}>
+              Xem danh sách
+            </Button>
+          </div>
+        )}
         <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Field label="Tìm sản phẩm">
             <TextInput value={keyword} onChange={setKeyword} placeholder="Nhập tên sản phẩm" />
@@ -209,6 +251,7 @@ export function ProductManager({
               { value: "ACTIVE", label: "Đang bán" },
               { value: "HIDDEN", label: "Đang ẩn" },
               { value: "OUT_OF_STOCK", label: "Hết hàng" },
+              { value: "LOW", label: `Sắp hết hàng (≤${LOW_STOCK_LIMIT})` },
             ]} />
           </Field>
           <Field label="Sắp xếp">
@@ -250,7 +293,18 @@ export function ProductManager({
                     {formatCurrency(product.effectivePrice)}
                     {product.discountPercent > 0 && <span className="ml-2 text-xs font-normal text-slate-400 line-through">{formatCurrency(product.price)}</span>}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">Tồn kho: {product.stockQuantity}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Tồn kho: {product.stockQuantity}
+                    {product.stockQuantity <= LOW_STOCK_LIMIT && (
+                      <>
+                        {" "}
+                        <Badge tone="warning">Sắp hết</Badge>{" "}
+                        <button type="button" onClick={() => restock(product)} className="text-teal-800 underline">
+                          +{RESTOCK_STEP} tồn
+                        </button>
+                      </>
+                    )}
+                  </p>
                   <div className="mt-auto flex flex-wrap gap-2 pt-4">
                     <Button className="flex-1" variant="ghost" onClick={() => {
                       setEditingId(product.id);
@@ -288,10 +342,9 @@ export function ProductManager({
           </Field>
           <Field label="Giá (đ)" error={errors.price}>
             <TextInput
-              type="number"
               value={form.price}
               onChange={(value) => setForm({ ...form, price: value })}
-              digitsOnly
+              thousands
               invalid={Boolean(errors.price)}
             />
           </Field>

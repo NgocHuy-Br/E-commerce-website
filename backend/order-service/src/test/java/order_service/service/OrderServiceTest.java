@@ -63,6 +63,9 @@ class OrderServiceTest {
     @Mock
     private OrderWriteService orderWriteService;
 
+    @Mock
+    private WalletService walletService;
+
     @InjectMocks
     private OrderService orderService;
 

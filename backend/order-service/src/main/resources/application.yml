@@ -23,6 +23,8 @@ spring:
       port: ${REDIS_PORT:6379}
 
 app:
+  shipping:
+    auto-deliver-minutes: ${SHIPPING_AUTO_DELIVER_MINUTES:5}
   jwt:
     secret: ${JWT_SECRET:VGhpc0lzQURldmVsb3BtZW50SldUU2VjcmV0S2V5Rm9yTmhom14}
   internal:

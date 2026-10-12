@@ -8,6 +8,7 @@ import order_service.dto.CheckoutRequest;
 import order_service.dto.ReservedItem;
 import order_service.entity.CustomerOrder;
 import order_service.entity.OrderItem;
+import order_service.entity.PaymentMethod;
 import order_service.entity.Voucher;
 import order_service.repository.CustomerOrderRepository;
 import order_service.repository.VoucherRepository;
@@ -18,22 +19,29 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Ghi đơn hàng vào cơ sở dữ liệu.
- * Tách riêng khỏi OrderService để phần gọi HTTP sang product-service nằm ngoài transaction.
+ * Tách riêng khỏi OrderService để phần gọi HTTP sang product-service nằm ngoài
+ * transaction.
  */
 @Service
 public class OrderWriteService {
 
     private final CustomerOrderRepository orderRepository;
     private final VoucherRepository voucherRepository;
+    private final CommissionService commissionService;
+    private final WalletService walletService;
 
-    public OrderWriteService(CustomerOrderRepository orderRepository, VoucherRepository voucherRepository) {
+    public OrderWriteService(CustomerOrderRepository orderRepository, VoucherRepository voucherRepository,
+            CommissionService commissionService, WalletService walletService) {
         this.orderRepository = orderRepository;
         this.voucherRepository = voucherRepository;
+        this.commissionService = commissionService;
+        this.walletService = walletService;
     }
 
     /**
      * Tạo đơn hàng từ những sản phẩm đã trừ kho.
-     * Giỏ hàng có sản phẩm của nhiều cửa hàng thì tách thành nhiều đơn, mỗi cửa hàng một đơn.
+     * Giỏ hàng có sản phẩm của nhiều cửa hàng thì tách thành nhiều đơn, mỗi cửa
+     * hàng một đơn.
      * Mã giảm giá tính theo phần trăm nên áp cho từng đơn là đủ.
      */
     @Transactional
@@ -41,18 +49,25 @@ public class OrderWriteService {
         Voucher voucher = findVoucher(request.voucherCode(), cartTotalOf(items));
 
         List<CustomerOrder> orders = new ArrayList<>();
+        BigDecimal commissionPercent = commissionService.currentPercent();
         for (Long storeId : storeIdsOf(items)) {
             CustomerOrder order = createOrderForStore(buyerId, storeId, request, items);
             if (voucher != null) {
                 order.applyVoucher(voucher);
             }
+            order.applyCommission(commissionPercent);
             orders.add(order);
         }
 
         if (voucher != null) {
             voucher.use();
         }
-        return orderRepository.saveAll(orders);
+        List<CustomerOrder> saved = orderRepository.saveAll(orders);
+        // Thiếu số dư thì ném lỗi và cả transaction đặt hàng được hoàn tác.
+        if (request.paymentMethod() == PaymentMethod.WALLET) {
+            saved.forEach(order -> walletService.payOrder(buyerId, order.getTotalAmount(), order.getId()));
+        }
+        return saved;
     }
 
     /** Tạo một đơn cho một cửa hàng, gồm những dòng hàng của cửa hàng đó. */
@@ -61,6 +76,7 @@ public class OrderWriteService {
         CustomerOrder order = new CustomerOrder(buyerId, storeId, request.shippingAddress(),
                 request.paymentMethod());
         for (ReservedItem item : itemsOfStore(items, storeId)) {
+            order.setSellerId(item.sellerId());
             order.addItem(new OrderItem(order, item.productId(), item.storeId(), item.productName(),
                     item.unitPrice(), item.quantity()));
         }
@@ -86,7 +102,9 @@ public class OrderWriteService {
         return total;
     }
 
-    /** Trả về mã giảm giá đã kiểm tra hợp lệ, hoặc null nếu người mua không nhập mã. */
+    /**
+     * Trả về mã giảm giá đã kiểm tra hợp lệ, hoặc null nếu người mua không nhập mã.
+     */
     private Voucher findVoucher(String voucherCode, BigDecimal cartTotal) {
         if (voucherCode == null || voucherCode.isBlank()) {
             return null;
@@ -98,7 +116,10 @@ public class OrderWriteService {
         return voucher;
     }
 
-    /** Mã giảm giá dùng được khi còn lượt, còn trong thời gian áp dụng và đơn đủ giá trị tối thiểu. */
+    /**
+     * Mã giảm giá dùng được khi còn lượt, còn trong thời gian áp dụng và đơn đủ giá
+     * trị tối thiểu.
+     */
     private void checkVoucherUsable(Voucher voucher, BigDecimal cartTotal) {
         if (voucher.getRemainingUses() < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết lượt dùng");

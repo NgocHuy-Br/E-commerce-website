@@ -36,7 +36,10 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    /** Từ khi đơn được giao cho vận chuyển (SHIPPING) trở đi thì không ai huỷ được nữa. */
+    /**
+     * Từ khi đơn được giao cho vận chuyển (SHIPPING) trở đi thì không ai huỷ được
+     * nữa.
+     */
     private static final Set<OrderStatus> CANCELLABLE_STATUSES = Set.of(
             OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKING);
 
@@ -56,10 +59,11 @@ public class OrderService {
     private final VoucherRepository voucherRepository;
     private final ReviewRepository reviewRepository;
     private final OrderWriteService orderWriteService;
+    private final WalletService walletService;
 
     public OrderService(CartService cartService, CustomerOrderRepository orderRepository, ProductClient productClient,
             StoreClient storeClient, VoucherRepository voucherRepository, ReviewRepository reviewRepository,
-            OrderWriteService orderWriteService) {
+            OrderWriteService orderWriteService, WalletService walletService) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
         this.productClient = productClient;
@@ -67,13 +71,15 @@ public class OrderService {
         this.voucherRepository = voucherRepository;
         this.reviewRepository = reviewRepository;
         this.orderWriteService = orderWriteService;
+        this.walletService = walletService;
     }
 
     /**
      * Đặt hàng gồm bốn bước:
      * 1. Lấy giỏ hàng của người mua từ Redis.
      * 2. Gọi product-service trừ kho từng sản phẩm, đồng thời lấy giá chốt đơn.
-     * 3. Ghi đơn hàng vào cơ sở dữ liệu (giỏ nhiều cửa hàng thì tách thành nhiều đơn).
+     * 3. Ghi đơn hàng vào cơ sở dữ liệu (giỏ nhiều cửa hàng thì tách thành nhiều
+     * đơn).
      * 4. Xoá giỏ hàng.
      * Nếu bước 3 thất bại thì phần kho đã trừ ở bước 2 được hoàn lại.
      */
@@ -101,11 +107,13 @@ public class OrderService {
         }
     }
 
-    /** Trừ kho một sản phẩm và lấy về giá chốt đơn do product-service quyết định. */
+    /**
+     * Trừ kho một sản phẩm và lấy về giá chốt đơn do product-service quyết định.
+     */
     private ReservedItem reserveStock(CartItemResponse cartItem) {
         ProductClient.ProductSnapshot product = productClient.reserve(cartItem.productId(), cartItem.quantity());
-        return new ReservedItem(product.id(), product.storeId(), product.name(), product.sellingPrice(),
-                cartItem.quantity());
+        return new ReservedItem(product.id(), product.storeId(), product.sellerId(), product.name(),
+                product.sellingPrice(), cartItem.quantity());
     }
 
     /** Đơn vừa tạo nên chưa có sản phẩm nào được đánh giá. */
@@ -134,7 +142,8 @@ public class OrderService {
     @Transactional(readOnly = true)
     public PlatformOrderStatsResponse getStatistics() {
         Map<String, Long> byStatus = orderRepository.countGroupedByStatus().stream()
-                .collect(Collectors.toMap(row -> row.getStatus().name(), CustomerOrderRepository.StatusCount::getTotal));
+                .collect(
+                        Collectors.toMap(row -> row.getStatus().name(), CustomerOrderRepository.StatusCount::getTotal));
         return new PlatformOrderStatsResponse(
                 orderRepository.count(),
                 orderRepository.sumRevenueExcludingStatus(OrderStatus.CANCELLED),
@@ -143,6 +152,7 @@ public class OrderService {
                 orderRepository.countByStatus(OrderStatus.CANCELLED),
                 reviewRepository.count(),
                 reviewRepository.averageRating(),
+                orderRepository.sumCommissionByStatus(OrderStatus.DELIVERED),
                 byStatus);
     }
 
@@ -184,6 +194,9 @@ public class OrderService {
         if (order.getPaymentStatus() != PaymentStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng này đã được thanh toán");
         }
+        if (paymentMethod == PaymentMethod.WALLET) {
+            walletService.payOrder(buyerId, order.getTotalAmount(), order.getId());
+        }
         order.setPaymentMethod(paymentMethod);
         order.setPaymentStatus(PaymentStatus.PAID);
         return toResponse(order);
@@ -201,17 +214,34 @@ public class OrderService {
                     "Không thể chuyển đơn hàng từ " + order.getStatus() + " sang " + status);
         }
         order.setStatus(status);
+        if (status == OrderStatus.SHIPPING) {
+            startShipping(order);
+        }
+        if (status == OrderStatus.DELIVERED) {
+            order.markDelivered();
+            if (order.getPaymentStatus() == PaymentStatus.PENDING) {
+                order.setPaymentStatus(PaymentStatus.PAID);
+            }
+            if (order.getSellerId() != null) {
+                walletService.settleSeller(order.getSellerId(),
+                        order.getTotalAmount().subtract(order.getCommissionAmount()), order.getId());
+            }
+        }
         if (status == OrderStatus.CANCELLED) {
             order.getItems().forEach(item -> productClient.release(item.getProductId(), item.getQuantity()));
             restoreVoucher(order);
             if (order.getPaymentStatus() == PaymentStatus.PAID) {
                 order.setPaymentStatus(PaymentStatus.REFUNDED);
+                if (order.getPaymentMethod() == PaymentMethod.WALLET) {
+                    walletService.refundOrder(order.getBuyerId(), order.getTotalAmount(), order.getId());
+                }
             }
         }
     }
 
     /**
-     * Hoàn lại kho khi đặt hàng thất bại. Nếu việc hoàn kho cũng lỗi thì chỉ ghi log,
+     * Hoàn lại kho khi đặt hàng thất bại. Nếu việc hoàn kho cũng lỗi thì chỉ ghi
+     * log,
      * vì lúc này việc quan trọng hơn là trả lỗi đặt hàng về cho người mua.
      */
     private void returnReservedStock(List<ReservedItem> items) {
@@ -236,7 +266,10 @@ public class OrderService {
                                 order.getVoucherCode(), order.getId()));
     }
 
-    /** Thông báo rõ lý do khi đơn không còn huỷ được (áp dụng cho cả người mua, người bán và admin). */
+    /**
+     * Thông báo rõ lý do khi đơn không còn huỷ được (áp dụng cho cả người mua,
+     * người bán và admin).
+     */
     private void ensureCancellable(CustomerOrder order) {
         if (CANCELLABLE_STATUSES.contains(order.getStatus())) {
             return;
@@ -286,7 +319,45 @@ public class OrderService {
         return new OrderResponse(order.getId(), order.getBuyerId(), order.getStoreId(), order.getTotalAmount(),
                 order.getDiscountAmount(),
                 order.getVoucherCode(), order.getShippingAddress(), order.getPaymentMethod(), order.getPaymentStatus(),
-                order.getStatus(), order.getCreatedAt(), items);
+                order.getStatus(), order.getCreatedAt(), items, order.getCarrier(), order.getTrackingCode(),
+                order.getShippedAt(), order.getEstimatedDeliveryAt(), order.getDeliveredAt(),
+                order.getCommissionPercent(), order.getCommissionAmount(),
+                order.getTotalAmount().subtract(order.getCommissionAmount()));
+    }
+
+    /** Người mua xác nhận đã nhận hàng sớm, không cần chờ hệ thống tự giao. */
+    @Transactional
+    public OrderResponse receive(Long orderId, Long buyerId) {
+        CustomerOrder order = findOrder(orderId);
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Đơn hàng không thuộc về bạn");
+        }
+        if (order.getStatus() != OrderStatus.SHIPPING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ xác nhận nhận hàng khi đơn đang giao");
+        }
+        changeStatus(order, OrderStatus.DELIVERED);
+        return toResponse(order);
+    }
+
+    /**
+     * Giả lập bưu tá: đơn đã giao cho vận chuyển quá thời gian quy định thì tự
+     * chuyển sang đã giao.
+     */
+    @Transactional
+    public int autoDeliver(java.time.Duration after) {
+        List<CustomerOrder> due = orderRepository.findAllByStatusAndShippedAtBefore(OrderStatus.SHIPPING,
+                Instant.now().minus(after));
+        due.forEach(order -> changeStatus(order, OrderStatus.DELIVERED));
+        return due.size();
+    }
+
+    private void startShipping(CustomerOrder order) {
+        String[] carriers = { "GHN", "GHTK", "Viettel Post" };
+        String carrier = carriers[(int) (order.getId() % carriers.length)];
+        String prefix = carrier.equals("Viettel Post") ? "VTP" : carrier;
+        String code = prefix + String.format("%08d", order.getId())
+                + java.util.concurrent.ThreadLocalRandom.current().nextInt(100, 1000);
+        order.ship(carrier, code, Instant.now().plus(java.time.Duration.ofDays(3)));
     }
 
 }

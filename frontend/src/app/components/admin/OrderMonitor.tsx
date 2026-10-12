@@ -13,7 +13,9 @@ import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 import type { Order, OrderStatus } from "../../lib/types";
-import { Badge, Button, Card, Empty, Select } from "../ui";
+import { Badge, Button, Card, Empty, Select, TextInput } from "../ui";
+import { Pager, usePaging } from "../Pager";
+import { recordAudit } from "../../lib/audit";
 
 const statuses: OrderStatus[] = [
   "PENDING",
@@ -30,6 +32,7 @@ export function OrderMonitor() {
   const notify = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("");
+  const [keyword, setKeyword] = useState("");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -48,16 +51,26 @@ export function OrderMonitor() {
         method: "PUT",
         token,
       });
-      notify(`Đơn #${order.id} → ${status}.`, "success");
+      notify(`Đơn #${order.id} → ${ORDER_STATUS_LABELS[status as OrderStatus]}.`, "success");
+      recordAudit(token, "Đổi trạng thái đơn hàng", `Đơn #${order.id} → ${ORDER_STATUS_LABELS[status as OrderStatus]}`);
       await load();
     } catch (error) {
       notify(errorMessage(error, "Không thể cập nhật đơn hàng."), "error");
     }
   };
 
-  const filtered = filter
-    ? orders.filter((order) => order.status === filter)
-    : orders;
+  const needle = keyword.trim().toLowerCase();
+  const filtered = orders
+    .filter((order) => !filter || order.status === filter)
+    .filter(
+      (order) =>
+        !needle ||
+        String(order.id) === needle.replace("#", "") ||
+        String(order.buyerId) === needle ||
+        String(order.trackingCode ?? "").toLowerCase().includes(needle) ||
+        order.items.some((item) => item.productName.toLowerCase().includes(needle)),
+    );
+  const paging = usePaging(filtered, 10, `${filter}|${needle}`);
 
   return (
     <Card
@@ -67,6 +80,9 @@ export function OrderMonitor() {
           <Button variant="ghost" onClick={load}>
             Làm mới
           </Button>
+          <div className="w-48">
+            <TextInput value={keyword} onChange={setKeyword} placeholder="Mã đơn, mã vận đơn, sản phẩm" />
+          </div>
           <div className="w-48">
             <Select
               value={filter}
@@ -87,7 +103,7 @@ export function OrderMonitor() {
         <Empty>Không có đơn hàng nào.</Empty>
       ) : (
         <div className="space-y-3">
-          {filtered.map((order) => (
+          {paging.slice.map((order) => (
             <div key={order.id} className="border border-stone-200 p-4 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">
@@ -148,6 +164,7 @@ export function OrderMonitor() {
           ))}
         </div>
       )}
+      <Pager page={paging.page} pageCount={paging.pageCount} total={paging.total} onPage={paging.setPage} />
     </Card>
   );
 }

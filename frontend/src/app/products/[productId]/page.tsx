@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Stars } from "../../components/Stars";
+import { SellerReply } from "../../components/ReviewReply";
 import {
   Badge,
   BackButton,
@@ -19,7 +20,7 @@ import { formatCurrency, formatDateTime } from "../../lib/format";
 import { useLoadEffect } from "../../lib/hooks";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
-import type { Order, Product, Promotion, Review } from "../../lib/types";
+import type { Order, Product, Promotion, Review, Store } from "../../lib/types";
 
 /** Trang chi tiết sản phẩm: thông tin, khuyến mãi, đánh giá và bình luận. */
 export default function ProductDetailPage() {
@@ -33,6 +34,7 @@ export default function ProductDetailPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewableOrders, setReviewableOrders] = useState<Order[]>([]);
+  const [myStoreId, setMyStoreId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [notFound, setNotFound] = useState(false);
 
@@ -62,6 +64,12 @@ export default function ProductDetailPage() {
       ),
     );
     setReviews(reviewData);
+    if (token && hasRole("SELLER")) {
+      const store = await api<Store>("/api/stores/mine", { token }).catch(() => null);
+      setMyStoreId(store?.id ?? null);
+    } else {
+      setMyStoreId(null);
+    }
     // Đơn đã nhận hàng và chưa đánh giá sản phẩm này thì cho phép viết đánh giá.
     setReviewableOrders(
       orderData.filter(
@@ -72,7 +80,7 @@ export default function ProductDetailPage() {
           ),
       ),
     );
-  }, [productId, token]);
+  }, [productId, token, hasRole]);
 
   useLoadEffect(load);
 
@@ -145,7 +153,10 @@ export default function ProductDetailPage() {
               </p>
               <p className="text-sm text-slate-500">
                 Danh mục {product.categoryName} · còn {product.stockQuantity}{" "}
-                sản phẩm · shop #{product.storeId}
+                sản phẩm ·{" "}
+                <Link href={`/stores/${product.storeId}`} className="text-teal-800 hover:underline">
+                  Xem cửa hàng
+                </Link>
               </p>
               <p className="whitespace-pre-line text-sm text-slate-700">
                 {product.description || "Chưa có mô tả"}
@@ -265,8 +276,21 @@ export default function ProductDetailPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
-                    {review.comment || "(không có nhận xét)"}
+                    {review.commentHidden ? (
+                      <span className="italic text-slate-400">
+                        Bình luận đã bị ẩn do vi phạm quy định.
+                      </span>
+                    ) : (
+                      review.comment || "(không có nhận xét)"
+                    )}
                   </p>
+                  <SellerReply
+                    review={review}
+                    canReply={myStoreId !== null && myStoreId === product.storeId}
+                    token={token}
+                    onDone={load}
+                    notify={notify}
+                  />
                 </li>
               ))}
             </ul>

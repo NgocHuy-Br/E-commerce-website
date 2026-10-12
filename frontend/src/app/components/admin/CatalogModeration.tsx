@@ -8,6 +8,9 @@ import { useNotify } from "../../lib/toast";
 import { checkText, firstError } from "../../lib/validate";
 import { formatCurrency } from "../../lib/format";
 import type { Category, Product, ProductStatus } from "../../lib/types";
+import { PRODUCT_STATUS_LABELS } from "../../lib/labels";
+import { Pager, usePaging } from "../Pager";
+import { recordAudit } from "../../lib/audit";
 import { Badge, Button, Card, Empty, Field, Select, TextInput } from "../ui";
 
 /** Quản lý danh mục và kiểm duyệt sản phẩm trên sàn. */
@@ -78,11 +81,14 @@ export function CatalogModeration() {
         token,
       });
       notify(`Sản phẩm ${product.name} → ${next}.`, "success");
+      recordAudit(token, next === "HIDDEN" ? "Ẩn sản phẩm khỏi sàn" : "Cho bán lại sản phẩm", `${product.name} (#${product.id})`);
       await load();
     } catch (error) {
       notify(errorMessage(error, "Không thể cập nhật sản phẩm."), "error");
     }
   };
+
+  const paging = usePaging(products, 10, status);
 
   return (
     <div className="space-y-5">
@@ -169,7 +175,7 @@ export function CatalogModeration() {
           <Empty>Không có sản phẩm nào.</Empty>
         ) : (
           <div className="space-y-3">
-            {products.map((product) => (
+            {paging.slice.map((product) => (
               <div
                 key={product.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 pb-3 last:border-0"
@@ -186,7 +192,7 @@ export function CatalogModeration() {
                             : "warning"
                       }
                     >
-                      {product.status}
+                      {PRODUCT_STATUS_LABELS[product.status]}
                     </Badge>
                     {product.hiddenByStore && (
                       <Badge tone="danger">Cửa hàng tạm ngưng</Badge>
@@ -216,6 +222,7 @@ export function CatalogModeration() {
             ))}
           </div>
         )}
+        <Pager page={paging.page} pageCount={paging.pageCount} total={paging.total} onPage={paging.setPage} />
       </Card>
     </div>
   );

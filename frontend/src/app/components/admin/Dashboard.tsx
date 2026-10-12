@@ -10,8 +10,10 @@ import type {
   AccountStats,
   CatalogStats,
   OrderStats,
+  OrderStatus,
   StoreStats,
 } from "../../lib/types";
+import { ORDER_STATUS_LABELS } from "../../lib/order";
 import { Button, Card, StatTile } from "../ui";
 
 /** Tổng quan nền tảng cho quản trị viên. */
@@ -73,9 +75,10 @@ export function Dashboard() {
           value={catalog?.activePromotions ?? "-"}
         />
         <StatTile label="Đơn hàng" value={orders?.totalOrders ?? "-"} />
+        <StatTile label="Doanh thu" value={formatCurrency(orders?.totalRevenue ?? 0)} />
         <StatTile
-          label="Doanh thu"
-          value={formatCurrency(orders?.totalRevenue ?? 0)}
+          label="Phí nền tảng thu được"
+          value={formatCurrency(orders?.platformCommission ?? 0)}
         />
         <StatTile label="Đơn đã giao" value={orders?.deliveredOrders ?? "-"} />
         <StatTile label="Đơn đã huỷ" value={orders?.cancelledOrders ?? "-"} />
@@ -89,7 +92,7 @@ export function Dashboard() {
         <p className="mt-4 text-sm text-slate-600">
           Theo trạng thái:{" "}
           {Object.entries(orders.ordersByStatus)
-            .map(([status, count]) => `${status}: ${count}`)
+            .map(([status, count]) => `${ORDER_STATUS_LABELS[status as OrderStatus] ?? status}: ${count}`)
             .join(" · ")}
         </p>
       )}

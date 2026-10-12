@@ -31,9 +31,11 @@ import java.util.List;
 public class AuthController {
 
     private final AuthService authService;
+    private final auth_service.service.PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, auth_service.service.PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -50,6 +52,23 @@ public class AuthController {
     @GetMapping("/me")
     public CurrentUserResponse me(@AuthenticationPrincipal AuthPrincipal principal) {
         return new CurrentUserResponse(principal.userId(), principal.email(), principal.roles());
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@AuthenticationPrincipal AuthPrincipal principal) {
+        return authService.refresh(principal.userId());
+    }
+
+    @PostMapping("/forgot-password")
+    public auth_service.dto.ForgotPasswordResponse forgotPassword(
+            @Valid @RequestBody auth_service.dto.ForgotPasswordRequest request) {
+        return passwordResetService.requestReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody auth_service.dto.ResetPasswordRequest request) {
+        passwordResetService.reset(request);
     }
 
     @PutMapping("/me/password")
@@ -81,7 +100,7 @@ public class AuthController {
     @PreAuthorize("hasRole('ADMIN')")
     public AccountResponse updateStatus(@PathVariable Long accountId,
             @Valid @RequestBody AccountStatusRequest request) {
-        return authService.updateStatus(accountId, request.status());
+        return authService.updateStatus(accountId, request.status(), request.reason());
     }
 
     @PatchMapping("/admin/accounts/{accountId}/seller-role")

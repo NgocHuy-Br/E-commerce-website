@@ -51,4 +51,4 @@ export function paymentMethodLabel(
 
 /** Câu thông báo hoàn tiền khi huỷ đơn đã thanh toán. */
 export const REFUND_NOTICE =
-  "Số tiền đã thanh toán sẽ được hoàn về tài khoản ngân hàng của bạn trong 1-3 ngày làm việc.";
+  "Thanh toán bằng ví được hoàn ngay vào ví của bạn; các phương thức khác được hoàn về tài khoản ngân hàng trong 1-3 ngày làm việc.";

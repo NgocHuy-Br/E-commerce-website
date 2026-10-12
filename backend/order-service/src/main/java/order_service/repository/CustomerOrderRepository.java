@@ -18,14 +18,22 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     /** Mỗi đơn chỉ thuộc một cửa hàng nên người bán chỉ cần lọc theo storeId. */
     List<CustomerOrder> findAllByStoreIdOrderByIdDesc(Long storeId);
 
+    List<CustomerOrder> findAllByStatusAndShippedAtBefore(OrderStatus status, java.time.Instant before);
+
     long countByStatus(OrderStatus status);
 
     long countByPaymentStatus(PaymentStatus paymentStatus);
 
-    /** Tính doanh thu bằng truy vấn tổng hợp, không nạp toàn bộ đơn hàng vào bộ nhớ. */
+    /**
+     * Tính doanh thu bằng truy vấn tổng hợp, không nạp toàn bộ đơn hàng vào bộ nhớ.
+     */
     @Query("select coalesce(sum(customerOrder.totalAmount), 0) from CustomerOrder customerOrder "
             + "where customerOrder.status <> :excludedStatus")
     BigDecimal sumRevenueExcludingStatus(@Param("excludedStatus") OrderStatus excludedStatus);
+
+    @Query("select coalesce(sum(customerOrder.commissionAmount), 0) from CustomerOrder customerOrder "
+            + "where customerOrder.status = :status")
+    BigDecimal sumCommissionByStatus(@Param("status") OrderStatus status);
 
     @Query("select customerOrder.status as status, count(customerOrder) as total "
             + "from CustomerOrder customerOrder group by customerOrder.status")

@@ -20,6 +20,15 @@ public class Review {
     private String comment;
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+    @Column(length = 1000)
+    private String sellerReply;
+    private Instant sellerRepliedAt;
+    @Column(nullable = false)
+    private boolean commentHidden;
+    @Column(nullable = false)
+    private boolean removed;
+    @Column(length = 500)
+    private String moderationReason;
 
     protected Review() {
     }
@@ -54,5 +63,36 @@ public class Review {
 
     public String getComment() {
         return comment;
+    }
+
+    public String getSellerReply() {
+        return sellerReply;
+    }
+
+    public Instant getSellerRepliedAt() {
+        return sellerRepliedAt;
+    }
+
+    public boolean isCommentHidden() {
+        return commentHidden;
+    }
+
+    public boolean isRemoved() {
+        return removed;
+    }
+
+    public String getModerationReason() {
+        return moderationReason;
+    }
+
+    public void reply(String reply) {
+        this.sellerReply = reply;
+        this.sellerRepliedAt = Instant.now();
+    }
+
+    public void moderate(boolean commentHidden, boolean removed, String reason) {
+        this.commentHidden = commentHidden;
+        this.removed = removed;
+        this.moderationReason = commentHidden || removed ? reason : null;
     }
 }

@@ -15,9 +15,13 @@ public class CustomerOrder {
     @Column(nullable = false)
     private Long buyerId;
 
-    /** Mỗi đơn hàng chỉ thuộc một cửa hàng; giỏ nhiều shop được tách thành nhiều đơn. */
+    /**
+     * Mỗi đơn hàng chỉ thuộc một cửa hàng; giỏ nhiều shop được tách thành nhiều
+     * đơn.
+     */
     @Column(nullable = false)
     private Long storeId;
+    private Long sellerId;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
     @Column(nullable = false, length = 500)
@@ -37,6 +41,17 @@ public class CustomerOrder {
     private OrderStatus status;
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+    @Column(length = 30)
+    private String carrier;
+    @Column(length = 40)
+    private String trackingCode;
+    private Instant shippedAt;
+    private Instant estimatedDeliveryAt;
+    private Instant deliveredAt;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal commissionPercent;
+    @Column(precision = 15, scale = 2)
+    private BigDecimal commissionAmount;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
@@ -68,6 +83,21 @@ public class CustomerOrder {
         voucherCode = voucher.getCode();
     }
 
+    /** Chốt phí nền tảng trên tổng tiền người mua phải trả (sau giảm giá). */
+    public void applyCommission(BigDecimal percent) {
+        this.commissionPercent = percent;
+        this.commissionAmount = totalAmount.multiply(percent)
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal getCommissionPercent() {
+        return commissionPercent == null ? BigDecimal.ZERO : commissionPercent;
+    }
+
+    public BigDecimal getCommissionAmount() {
+        return commissionAmount == null ? BigDecimal.ZERO : commissionAmount;
+    }
+
     public Long getId() {
         return id;
     }
@@ -78,6 +108,14 @@ public class CustomerOrder {
 
     public Long getStoreId() {
         return storeId;
+    }
+
+    public Long getSellerId() {
+        return sellerId;
+    }
+
+    public void setSellerId(Long sellerId) {
+        this.sellerId = sellerId;
     }
 
     public BigDecimal getTotalAmount() {
@@ -119,6 +157,37 @@ public class CustomerOrder {
 
     public List<OrderItem> getItems() {
         return items;
+    }
+
+    public String getCarrier() {
+        return carrier;
+    }
+
+    public String getTrackingCode() {
+        return trackingCode;
+    }
+
+    public Instant getShippedAt() {
+        return shippedAt;
+    }
+
+    public Instant getEstimatedDeliveryAt() {
+        return estimatedDeliveryAt;
+    }
+
+    public Instant getDeliveredAt() {
+        return deliveredAt;
+    }
+
+    public void ship(String carrier, String trackingCode, Instant estimatedDeliveryAt) {
+        this.carrier = carrier;
+        this.trackingCode = trackingCode;
+        this.shippedAt = Instant.now();
+        this.estimatedDeliveryAt = estimatedDeliveryAt;
+    }
+
+    public void markDelivered() {
+        this.deliveredAt = Instant.now();
     }
 
     public void setStatus(OrderStatus status) {

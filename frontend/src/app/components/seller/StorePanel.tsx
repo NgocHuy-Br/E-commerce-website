@@ -112,9 +112,24 @@ export function StorePanel({
       }
       className="overflow-hidden border-t-4 border-t-teal-700"
     >
+      {store && (store.status === "REJECTED" || store.status === "SUSPENDED") && (
+        <div className="mb-4 border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p className="font-medium">
+            {store.status === "REJECTED" ? "Yêu cầu mở cửa hàng bị từ chối" : "Cửa hàng đang bị tạm ngưng"}
+          </p>
+          <p className="mt-1">Lý do: {store.statusReason || "Quản trị viên chưa nêu lý do."}</p>
+          {store.status === "REJECTED" ? (
+            <p className="mt-1 text-xs">
+              Bạn có thể bấm “Chỉnh sửa”, cập nhật thông tin rồi lưu để gửi lại yêu cầu cho quản trị viên duyệt.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs">Vui lòng liên hệ quản trị viên để được mở lại.</p>
+          )}
+        </div>
+      )}
       {!store && (
         <p className="mb-3 text-sm text-slate-600">
-          Đăng ký mở cửa hàng, admin duyệt xong bạn sẽ được cấp quyền SELLER để
+          Đăng ký mở cửa hàng, admin duyệt xong bạn sẽ được cấp quyền người bán để
           đăng bán.
         </p>
       )}

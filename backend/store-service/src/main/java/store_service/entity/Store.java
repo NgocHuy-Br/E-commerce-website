@@ -43,6 +43,9 @@ public class Store {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(length = 500)
+    private String statusReason;
+
     protected Store() {
     }
 
@@ -99,5 +102,14 @@ public class Store {
 
     public void setStatus(StoreStatus status) {
         this.status = status;
+    }
+
+    public String getStatusReason() {
+        return statusReason;
+    }
+
+    /** Lý do chỉ giữ khi bị từ chối hoặc tạm ngưng; được duyệt lại thì xóa. */
+    public void setStatusReason(String statusReason) {
+        this.statusReason = statusReason;
     }
 }

@@ -60,8 +60,10 @@ export function PromotionManager({
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(0);
 
+  const isStoreActive = store?.status === "ACTIVE";
+
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isStoreActive) return;
     try {
       const [productData, campaignData] = await Promise.all([
         api<Product[]>("/api/products/mine", { token }),
@@ -73,7 +75,7 @@ export function PromotionManager({
     } catch (error) {
       notify(errorMessage(error, "Không thể tải khuyến mãi của shop."), "error");
     }
-  }, [token, notify]);
+  }, [token, notify, isStoreActive]);
 
   useLoadEffect(load);
 

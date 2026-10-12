@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PageHeader, RequireLogin, Card, Field, TextInput, Button } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
 import { useSession } from "../../lib/session";
+import { PasswordStrength } from "../../components/PasswordStrength";
 import { useNotify } from "../../lib/toast";
 
 export default function AccountSecurityPage() {
@@ -31,7 +32,7 @@ export default function AccountSecurityPage() {
   if (!token || !session) {
     return (
       <>
-        <PageHeader title="Mật khẩu & bảo mật" />
+        <PageHeader title="Mật khẩu & bảo mật" back={false} />
         <RequireLogin
           next="/account/security"
           message="Đăng nhập để quản lý mật khẩu và bảo mật tài khoản."
@@ -42,7 +43,6 @@ export default function AccountSecurityPage() {
 
   return (
     <>
-      <PageHeader title="Mật khẩu & bảo mật" />
       <Card title="Thông tin đăng nhập">
         <div className="space-y-3">
           <Field label="Tên đăng nhập">
@@ -59,6 +59,7 @@ export default function AccountSecurityPage() {
           </Field>
           <Field label="Mật khẩu mới">
             <TextInput type="password" value={newPassword} onChange={setNewPassword} showToggle />
+            <PasswordStrength value={newPassword} />
           </Field>
         </div>
         <Button className="mt-4" onClick={changePassword}>Lưu mật khẩu mới</Button>

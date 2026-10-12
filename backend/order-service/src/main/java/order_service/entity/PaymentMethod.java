@@ -5,7 +5,8 @@ public enum PaymentMethod {
     COD,
     BANK_TRANSFER,
     MOMO,
-    CREDIT_CARD;
+    CREDIT_CARD,
+    WALLET;
 
     /** COD thì thu tiền khi giao, các phương thức còn lại trả trước. */
     public boolean isPayOnDelivery() {

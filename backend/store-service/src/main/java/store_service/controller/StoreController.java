@@ -87,6 +87,6 @@ public class StoreController {
     @PreAuthorize("hasRole('ADMIN')")
     public StoreResponse updateStatus(@PathVariable Long storeId, @Valid @RequestBody StoreStatusRequest request,
             @org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorization) {
-        return storeService.updateStatus(storeId, request.status(), authorization);
+        return storeService.updateStatus(storeId, request.status(), request.reason(), authorization);
     }
 }

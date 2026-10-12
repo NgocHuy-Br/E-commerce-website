@@ -18,10 +18,10 @@ import {
 } from "../../lib/payment";
 import { useSession } from "../../lib/session";
 import { useNotify } from "../../lib/toast";
-import type { Order, OrderItem, PaymentMethod } from "../../lib/types";
+import type { Order, OrderItem, OrderStatus, PaymentMethod } from "../../lib/types";
 import { Stars } from "../Stars";
+import { Pager, usePaging } from "../Pager";
 import { Badge, Button, Card, Empty, Field, Modal, TextArea } from "../ui";
-import { chargeWallet, readWallet } from "../../lib/mock";
 
 const statusLabels = ORDER_STATUS_LABELS;
 const paymentLabels = PAYMENT_STATUS_LABELS;
@@ -36,6 +36,26 @@ export function MyOrders() {
   } | null>(null);
   const [paying, setPaying] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
+  const [tab, setTab] = useState("ALL");
+
+  const tabMatchers: Record<string, (order: Order) => boolean> = {
+    ALL: () => true,
+    UNPAID: (order) => order.paymentStatus === "PENDING" && order.status !== "CANCELLED",
+    PROCESSING: (order) => ["PENDING", "CONFIRMED", "PACKING"].includes(order.status),
+    SHIPPING: (order) => order.status === "SHIPPING",
+    DELIVERED: (order) => order.status === "DELIVERED",
+    CANCELLED: (order) => order.status === "CANCELLED",
+  };
+  const tabLabels: [string, string][] = [
+    ["ALL", "Tất cả"],
+    ["UNPAID", "Chờ thanh toán"],
+    ["PROCESSING", "Đang xử lý"],
+    ["SHIPPING", "Đang giao"],
+    ["DELIVERED", "Đã giao"],
+    ["CANCELLED", "Đã huỷ"],
+  ];
+  const filteredOrders = orders.filter(tabMatchers[tab] ?? tabMatchers.ALL);
+  const paging = usePaging(filteredOrders, 8, tab);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -47,6 +67,19 @@ export function MyOrders() {
   }, [token, notify]);
 
   useLoadEffect(load);
+
+  const receive = async (order: Order) => {
+    try {
+      await api<Order>(`/api/orders/${order.id}/receive`, {
+        method: "PUT",
+        token,
+      });
+      notify(`Đã xác nhận nhận hàng đơn #${order.id}.`, "success");
+      await load();
+    } catch (error) {
+      notify(errorMessage(error, "Không thể xác nhận nhận hàng."), "error");
+    }
+  };
 
   return (
     <Card
@@ -60,7 +93,26 @@ export function MyOrders() {
         <Empty>Bạn chưa có đơn hàng nào.</Empty>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => {
+          <div className="flex gap-1 overflow-x-auto border-b border-stone-200 pb-2" role="tablist">
+            {tabLabels.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${
+                  tab === key
+                    ? "border-teal-700 text-teal-800"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {label} ({orders.filter(tabMatchers[key]).length})
+              </button>
+            ))}
+          </div>
+          {filteredOrders.length === 0 && <Empty>Không có đơn hàng trong mục này.</Empty>}
+          {paging.slice.map((order) => {
             const cancellable = canCancel(order.status);
             const blockedReason = cancelBlockedReason(order.status);
             const canPay =
@@ -69,7 +121,11 @@ export function MyOrders() {
               <div key={order.id} className="border border-stone-200 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold">Đơn #{order.id}</p>
+                    <p className="font-semibold">
+                      <Link href={`/orders/${order.id}`} className="hover:text-teal-800 hover:underline">
+                        Đơn #{order.id}
+                      </Link>
+                    </p>
                     <p className="text-xs text-slate-500">
                       {formatDateTime(order.createdAt)}
                     </p>
@@ -137,6 +193,7 @@ export function MyOrders() {
                 <p className="mt-3 text-xs text-slate-500">
                   Giao tới: {order.shippingAddress}
                 </p>
+                <OrderTimeline order={order} />
                 <p className="text-xs text-slate-500">
                   Phương thức: {paymentMethodLabel(order.paymentMethod)}
                 </p>
@@ -152,6 +209,11 @@ export function MyOrders() {
                     Tổng: {formatCurrency(order.totalAmount)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
+                    {order.status === "SHIPPING" && (
+                      <Button onClick={() => receive(order)}>
+                        Đã nhận hàng
+                      </Button>
+                    )}
                     {canPay && (
                       <Button onClick={() => setPaying(order)}>
                         Thanh toán
@@ -176,6 +238,7 @@ export function MyOrders() {
               </div>
             );
           })}
+          <Pager page={paging.page} pageCount={paging.pageCount} total={paging.total} onPage={paging.setPage} />
         </div>
       )}
 
@@ -219,6 +282,49 @@ export function MyOrders() {
   );
 }
 
+/** Dòng thời gian trạng thái và thông tin vận chuyển của đơn. */
+export function OrderTimeline({ order }: { order: Order }) {
+  if (order.status === "CANCELLED") {
+    return <p className="mt-3 text-xs text-rose-600">Đơn hàng đã bị huỷ.</p>;
+  }
+  const steps: { key: OrderStatus; label: string; time?: string | null }[] = [
+    { key: "PENDING", label: "Đặt hàng", time: order.createdAt },
+    { key: "CONFIRMED", label: "Shop xác nhận" },
+    { key: "PACKING", label: "Đóng gói" },
+    { key: "SHIPPING", label: "Đang giao", time: order.shippedAt },
+    { key: "DELIVERED", label: "Đã nhận hàng", time: order.deliveredAt },
+  ];
+  const current = steps.findIndex((step) => step.key === order.status);
+  return (
+    <div className="mt-3">
+      <ol className="flex flex-wrap gap-x-4 gap-y-2">
+        {steps.map((step, index) => {
+          const done = index <= current;
+          return (
+            <li key={step.key} className="flex items-center gap-2 text-xs">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${done ? "bg-teal-600" : "bg-stone-300"}`}
+              />
+              <span className={done ? "font-medium text-slate-800" : "text-slate-400"}>
+                {step.label}
+                {done && step.time ? ` · ${formatDateTime(step.time)}` : ""}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {order.trackingCode && (
+        <p className="mt-2 text-xs text-slate-600">
+          Vận chuyển: <b>{order.carrier}</b> · Mã vận đơn: <b>{order.trackingCode}</b>
+          {order.status === "SHIPPING" && order.estimatedDeliveryAt
+            ? ` · Dự kiến giao: ${formatDateTime(order.estimatedDeliveryAt)}`
+            : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Popup cho người mua chọn phương thức rồi thanh toán. */
 function PaymentModal({
   order,
@@ -240,14 +346,6 @@ function PaymentModal({
   const submit = async () => {
     setSending(true);
     try {
-      if (method === "WALLET") {
-        const wallet = readWallet();
-        if (wallet.balance < order.totalAmount) {
-          notify("Số dư ví không đủ để thanh toán đơn này.", "error");
-          return;
-        }
-        chargeWallet(order.totalAmount);
-      }
       await api<Order>(`/api/orders/${order.id}/pay`, {
         method: "PUT",
         token,

@@ -13,6 +13,7 @@ import {
   toIsoInstant,
 } from "../../lib/format";
 import type { Voucher } from "../../lib/types";
+import { recordAudit } from "../../lib/audit";
 import { Button, Card, Empty, Field, TextInput } from "../ui";
 
 /** Quản lý mã giảm giá của nền tảng. */
@@ -74,6 +75,7 @@ export function VoucherManager() {
         },
       });
       notify(`Đã tạo mã ${code.toUpperCase()}.`, "success");
+      recordAudit(token, "Tạo mã giảm giá", `${code.toUpperCase()} — ${discountPercent}%`);
       setCode("");
       await load();
     } catch (error) {
@@ -88,6 +90,7 @@ export function VoucherManager() {
         token,
       });
       notify(`Đã xoá mã ${voucher.code}.`, "success");
+      recordAudit(token, "Xoá mã giảm giá", voucher.code);
       await load();
     } catch (error) {
       notify(errorMessage(error, "Không thể xoá mã giảm giá."), "error");
@@ -116,10 +119,9 @@ export function VoucherManager() {
         </Field>
         <Field label="Đơn tối thiểu (đ)" error={errors.minimumOrderAmount}>
           <TextInput
-            type="number"
             value={minimumOrderAmount}
             onChange={setMinimumOrderAmount}
-            digitsOnly
+            thousands
             invalid={Boolean(errors.minimumOrderAmount)}
           />
         </Field>

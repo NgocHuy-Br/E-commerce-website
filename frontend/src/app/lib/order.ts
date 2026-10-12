@@ -36,7 +36,7 @@ export const ALLOWED_NEXT_STATUSES: Record<
     { status: "SHIPPING", label: "Giao cho vận chuyển" },
     { status: "CANCELLED", label: "Huỷ đơn" },
   ],
-  SHIPPING: [{ status: "DELIVERED", label: "Đã giao xong" }],
+  SHIPPING: [],
   DELIVERED: [],
   CANCELLED: [],
 };

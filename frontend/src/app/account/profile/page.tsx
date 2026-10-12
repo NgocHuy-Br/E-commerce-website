@@ -10,7 +10,7 @@ export default function AccountProfilePage() {
   if (!token || !session) {
     return (
       <>
-        <PageHeader title="Thông tin cá nhân" />
+        <PageHeader title="Thông tin cá nhân" back={false} />
         <RequireLogin
           next="/account/profile"
           message="Đăng nhập để xem và chỉnh sửa thông tin cá nhân."
@@ -21,7 +21,6 @@ export default function AccountProfilePage() {
 
   return (
     <>
-      <PageHeader title="Thông tin cá nhân" />
       <ProfilePanel />
     </>
   );
